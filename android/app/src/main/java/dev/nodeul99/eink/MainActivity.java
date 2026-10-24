@@ -2,12 +2,16 @@ package dev.nodeul99.eink;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
@@ -27,7 +31,15 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Calendar;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Poke3 대시보드 전용 홈 앱.
@@ -36,6 +48,7 @@ import java.util.Calendar;
  * - 상태바·내비게이션 바를 숨긴 전체 화면, 화면 꺼짐 방지
  * - 홈 앱(런처)으로 등록 → 전원을 켜거나 홈 버튼을 눌러도 대시보드
  * - 화면 어디든 길게 누르면 관리 메뉴 (와이파이, 연결 설정, 잔상 지우기 등)
+ * - USB 로 Download 폴더에 넣은 dashboard.txt 에서 연결 정보(웹앱 주소·토큰)를 읽는다
  * - 매일 새벽 페이지를 다시 불러 레포에 푸시한 화면 변경을 반영
  */
 public class MainActivity extends Activity {
@@ -43,6 +56,13 @@ public class MainActivity extends Activity {
     private static final String DASHBOARD_URL = "https://nodeul99-dev.github.io/eink_dashboard/";
     private static final int DAILY_RELOAD_HOUR = 4;
     private static final long CHECK_INTERVAL_MS = 30 * 60 * 1000L;
+    private static final int REQ_READ_STORAGE = 1;
+    private static final int REQ_PICK_FILE = 2;
+    // 윈도우에서 확장자가 숨겨져 있으면 dashboard.txt.txt 로 저장되기 쉽다
+    private static final String[] CONNECTION_FILES = {"dashboard.txt", "dashboard.txt.txt", "dashboard"};
+    private static final Pattern EXEC_URL = Pattern.compile("https://script\\.google\\.com/macros/s/[A-Za-z0-9_\\-]+/exec");
+    private static final Pattern TOKEN_PARAM = Pattern.compile("[?&]token=(?:\\s|%20)*([A-Za-z0-9_\\-]+)");
+    private static final Pattern TOKEN_LINE = Pattern.compile("^\\s*([A-Za-z0-9_\\-]{20,})\\s*$", Pattern.MULTILINE);
 
     private WebView webView;
     private View flashOverlay;
@@ -140,7 +160,8 @@ public class MainActivity extends Activity {
                 "화면 잔상 지우기",
                 "다시 불러오기",
                 "와이파이 설정",
-                "연결 설정 (웹앱 주소·토큰)",
+                "연결 파일 불러오기 (Download/dashboard.txt)",
+                "연결 설정 (직접 입력)",
                 "기본 홈 화면 바꾸기",
                 "기기 설정",
         };
@@ -152,9 +173,10 @@ public class MainActivity extends Activity {
                         case 1: flashClear(); break;
                         case 2: webView.loadUrl(DASHBOARD_URL); break;
                         case 3: openSettings(Settings.ACTION_WIFI_SETTINGS); break;
-                        case 4: showConnectionDialog(); break;
-                        case 5: openSettings(Settings.ACTION_HOME_SETTINGS); break;
-                        case 6: openSettings(Settings.ACTION_SETTINGS); break;
+                        case 4: importConnectionFile(); break;
+                        case 5: showConnectionDialog(); break;
+                        case 6: openSettings(Settings.ACTION_HOME_SETTINGS); break;
+                        case 7: openSettings(Settings.ACTION_SETTINGS); break;
                         default: break;
                     }
                 })
@@ -214,13 +236,109 @@ public class MainActivity extends Activity {
                         Toast.makeText(this, "주소와 토큰을 모두 입력하세요", Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    prefs.edit().putString("gas_url", u).putString("gas_token", t).apply();
-                    // 페이지는 #gas=...&token=... 를 읽어 기기에 저장하고 주소에서 지운다
-                    webView.loadUrl(DASHBOARD_URL + "#gas=" + Uri.encode(u) + "&token=" + Uri.encode(t));
+                    connect(u, t);
                 })
                 .setNegativeButton("취소", null)
                 .setOnDismissListener(d -> hideSystemBars())
                 .show();
+    }
+
+    /** 연결 정보를 페이지에 넘긴다. 페이지가 #gas=...&token=... 를 읽어 기기에 저장하고 주소에서 지운다 */
+    private void connect(String url, String token) {
+        prefs.edit().putString("gas_url", url).putString("gas_token", token).apply();
+        webView.loadUrl(DASHBOARD_URL + "#gas=" + Uri.encode(url) + "&token=" + Uri.encode(token));
+        Toast.makeText(this, "연결했습니다. 잠시 뒤 일정이 나타납니다", Toast.LENGTH_LONG).show();
+    }
+
+    // ---------- 연결 파일 (USB 로 Download 폴더에 넣은 dashboard.txt) ----------
+
+    private void importConnectionFile() {
+        if (Build.VERSION.SDK_INT <= 32
+                && checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, REQ_READ_STORAGE);
+            return;
+        }
+        File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        for (String name : CONNECTION_FILES) {
+            File f = new File(dir, name);
+            if (!f.isFile()) continue;
+            try (InputStream in = new FileInputStream(f)) {
+                applyConnectionText(readAll(in));
+            } catch (Exception e) {
+                Toast.makeText(this, "파일을 읽지 못했습니다: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                pickConnectionFile();
+            }
+            return;
+        }
+        Toast.makeText(this, "Download 폴더에 dashboard.txt 가 없습니다. 파일을 직접 골라 주세요", Toast.LENGTH_LONG).show();
+        pickConnectionFile();
+    }
+
+    /** 폴더 위치가 다르거나 권한이 없을 때: 파일 선택 창 */
+    private void pickConnectionFile() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        try {
+            startActivityForResult(i, REQ_PICK_FILE);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "파일 선택 창을 열 수 없습니다. '연결 설정 (직접 입력)'을 써 주세요", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQ_READ_STORAGE) return;
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) importConnectionFile();
+        else pickConnectionFile();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        hideSystemBars();
+        if (requestCode != REQ_PICK_FILE || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        try (InputStream in = getContentResolver().openInputStream(data.getData())) {
+            applyConnectionText(readAll(in));
+        } catch (Exception e) {
+            Toast.makeText(this, "파일을 읽지 못했습니다: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * 받는 형식 (둘 다 가능):
+     *   1) 한 줄:  https://script.google.com/macros/s/.../exec?token=XXXX
+     *   2) 두 줄:  https://script.google.com/macros/s/.../exec
+     *             XXXX
+     */
+    void applyConnectionText(String raw) {
+        String text = raw.replace("\uFEFF", "");   // 메모장이 붙이는 BOM 제거
+        Matcher url = EXEC_URL.matcher(text);
+        if (!url.find()) {
+            Toast.makeText(this, "파일에서 웹앱 주소(.../exec)를 찾지 못했습니다", Toast.LENGTH_LONG).show();
+            return;
+        }
+        String token = null;
+        Matcher p = TOKEN_PARAM.matcher(text);
+        if (p.find()) token = p.group(1);
+        else {
+            Matcher l = TOKEN_LINE.matcher(text);
+            if (l.find()) token = l.group(1);
+        }
+        if (token == null) {
+            Toast.makeText(this, "파일에서 토큰을 찾지 못했습니다", Toast.LENGTH_LONG).show();
+            return;
+        }
+        connect(url.group(), token);
+    }
+
+    private static String readAll(InputStream in) throws java.io.IOException {
+        StringBuilder sb = new StringBuilder();
+        BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+        String line;
+        while ((line = r.readLine()) != null) sb.append(line).append('\n');
+        return sb.toString();
     }
 
     // ---------- 매일 새벽 다시 불러오기 ----------
