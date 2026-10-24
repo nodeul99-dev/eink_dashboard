@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.Manifest;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -14,6 +15,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.text.InputType;
 import android.view.View;
@@ -49,6 +51,8 @@ import java.util.regex.Pattern;
  * - 홈 앱(런처)으로 등록 → 전원을 켜거나 홈 버튼을 눌러도 대시보드
  * - 화면 어디든 길게 누르면 관리 메뉴 (와이파이, 연결 설정, 잔상 지우기 등)
  * - USB 로 Download 폴더에 넣은 dashboard.txt 에서 연결 정보(웹앱 주소·토큰)를 읽는다
+ * - 화면이 잠들지 않게: 화면 켜짐 유지 플래그 + wake lock + (권한을 받으면) 시스템 화면 꺼짐 시간을 최대로
+ *   BOOX 설정 메뉴는 최장 30분까지만 고를 수 있어 앱에서 직접 바꾼다
  * - 매일 새벽 페이지를 다시 불러 레포에 푸시한 화면 변경을 반영
  */
 public class MainActivity extends Activity {
@@ -67,6 +71,9 @@ public class MainActivity extends Activity {
     private WebView webView;
     private View flashOverlay;
     private SharedPreferences prefs;
+    private PowerManager.WakeLock wakeLock;
+    // 안드로이드 화면 꺼짐 시간의 최댓값(ms, 약 24일). 사실상 '꺼지지 않음'
+    private static final int SCREEN_TIMEOUT_MAX = Integer.MAX_VALUE;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private int lastReloadDay = -1;
 
@@ -75,6 +82,11 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("eink", MODE_PRIVATE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        // 혹시 잠금 화면이 뜨더라도 그 위에 대시보드를 띄운다
+        if (Build.VERSION.SDK_INT >= 27) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        }
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.WHITE);
@@ -163,6 +175,7 @@ public class MainActivity extends Activity {
                 "연결 파일 불러오기 (Download/dashboard.txt)",
                 "연결 설정 (직접 입력)",
                 "기본 홈 화면 바꾸기",
+                "화면 자동 잠금 끄기",
                 "기기 설정",
         };
         new AlertDialog.Builder(this)
@@ -176,7 +189,8 @@ public class MainActivity extends Activity {
                         case 4: importConnectionFile(); break;
                         case 5: showConnectionDialog(); break;
                         case 6: openSettings(Settings.ACTION_HOME_SETTINGS); break;
-                        case 7: openSettings(Settings.ACTION_SETTINGS); break;
+                        case 7: disableAutoLock(); break;
+                        case 8: openSettings(Settings.ACTION_SETTINGS); break;
                         default: break;
                     }
                 })
@@ -380,12 +394,69 @@ public class MainActivity extends Activity {
         super.onResume();
         hideSystemBars();
         webView.onResume();
+        acquireWakeLock();
+        // 권한을 받아 둔 상태면, BOOX 설정에서 값이 다시 바뀌었어도 조용히 최대로 되돌린다
+        if (canWriteSettings()) applyMaxScreenTimeout();
     }
 
     @Override
     protected void onPause() {
         webView.onPause();
+        releaseWakeLock();
         super.onPause();
+    }
+
+    // ---------- 화면이 잠들지 않게 ----------
+
+    @SuppressWarnings("deprecation")
+    private void acquireWakeLock() {
+        if (wakeLock == null) {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm == null) return;
+            wakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ON_AFTER_RELEASE, "eink:dashboard");
+            wakeLock.setReferenceCounted(false);
+        }
+        if (!wakeLock.isHeld()) wakeLock.acquire();
+    }
+
+    private void releaseWakeLock() {
+        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+    }
+
+    private boolean canWriteSettings() {
+        return Build.VERSION.SDK_INT < 23 || Settings.System.canWrite(this);
+    }
+
+    private boolean applyMaxScreenTimeout() {
+        try {
+            return Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, SCREEN_TIMEOUT_MAX);
+        } catch (SecurityException e) {
+            return false;
+        }
+    }
+
+    /** 메뉴 '화면 자동 잠금 끄기': 시스템 설정 수정 권한을 받아 화면 꺼짐 시간을 최대로 */
+    private void disableAutoLock() {
+        if (!canWriteSettings()) {
+            Toast.makeText(this, "'시스템 설정 수정' 허용을 켠 뒤 돌아와 이 메뉴를 한 번 더 눌러 주세요", Toast.LENGTH_LONG).show();
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:" + getPackageName())));
+            } catch (ActivityNotFoundException e) {
+                openSettings(Settings.ACTION_SETTINGS);
+            }
+            return;
+        }
+        boolean ok = applyMaxScreenTimeout();
+        int now;
+        try {
+            now = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT);
+        } catch (Settings.SettingNotFoundException e) {
+            now = -1;
+        }
+        String msg = ok && now >= SCREEN_TIMEOUT_MAX / 2
+                ? "화면 자동 잠금을 껐습니다 (화면 꺼짐 시간: 약 " + (now / 86400000) + "일)"
+                : "설정을 바꾸지 못했습니다 (현재 " + (now / 60000) + "분)";
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
     }
 
     @Override

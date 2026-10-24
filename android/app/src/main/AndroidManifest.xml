@@ -3,6 +3,9 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 화면이 잠들지 않게: wake lock, 시스템 화면 꺼짐 시간 변경(사용자가 '시스템 설정 수정'을 허용해야 함) -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <!-- USB 로 Download 폴더에 넣은 연결 파일(dashboard.txt)을 읽기 위해. Poke3 는 안드로이드 10 -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
