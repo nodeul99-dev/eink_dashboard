@@ -44,6 +44,11 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 
 /* 인용구 영역 제목 '책갈피': 글자 맞춤 대상 밖이라 늘 이 크기 */
 .quote h2 { font-size: 1rem; }   /* 인용문(.q-text 1em)과 같은 크기 */
+/* 책갈피 ↻ 버튼: 흑백 테두리, 손가락으로 누르기 쉬운 크기 */
+.quote h2 { display: flex; justify-content: space-between; align-items: center; }
+.h2btn { font: inherit; font-size: 1.1em; line-height: 1; background: #fff; color: #000;
+         border: 2px solid #000; border-radius: 0.3em; padding: 0.15em 0.45em; margin-bottom: 0.15em;
+         display: flex; align-items: center; }
 .q-text { font-size: 1em; line-height: 1.5; white-space: pre-line; word-break: keep-all; }
 .q-text b { font-weight: 700; }
 .q-by { font-size: 0.7em; margin-top: 0.4em; text-align: right; }

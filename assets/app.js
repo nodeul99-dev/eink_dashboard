@@ -215,14 +215,34 @@
     return order;
   }
 
+  // ↻ 버튼으로 고른 인용구. 다음 정각(슬롯이 바뀌면)에는 원래 순서로 돌아간다
+  var picked = { slot: null, index: null };
+
+  function pickAnotherQuote() {
+    var quotes = data && data.quotes || [];
+    if (quotes.length < 2) return;
+    var now = new Date();
+    var current = currentQuoteIndex(quotes, now);
+    var next;
+    do { next = Math.floor(Math.random() * quotes.length); } while (next === current);
+    picked = { slot: quoteSlot(now), index: next };
+    renderQuote(now);
+  }
+
+  function currentQuoteIndex(quotes, now) {
+    var slot = quoteSlot(now);
+    if (picked.slot === slot && picked.index < quotes.length) return picked.index;
+    var order = quoteOrder(quotes);
+    return order[slot % order.length];
+  }
+
   function renderQuote(now) {
     var quotes = data && data.quotes || [];
     if (!quotes.length) {
       setHtml('quote-fit', '<p class="empty">' + (data ? '받아 둔 인용구가 없습니다 (옵시디언 플러그인에서 보내기 필요)' : '') + '</p>');
       return;
     }
-    var order = quoteOrder(quotes);
-    var q = quotes[order[quoteSlot(now) % order.length]];
+    var q = quotes[currentQuoteIndex(quotes, now)];
     var text = esc(q.text).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\*\*/g, '');
     var by = q.book + (q.author ? ', ' + q.author : '');
     setHtml('quote-fit', '<p class="q-text">' + text + '</p><p class="q-by">— ' + esc(by) + '</p>');
@@ -344,6 +364,9 @@
   setInterval(syncNow, SYNC_MIN * 60000);
   window.addEventListener('online', function () { setTimeout(syncNow, 3000); });
   document.addEventListener('click', function () { if (!IN_APP) enterFullscreen(); syncNow(); });
+  // 책갈피 ↻: 다른 인용구 보기 (동기화는 하지 않는다)
+  var nextBtn = $('quote-next');
+  if (nextBtn) nextBtn.addEventListener('click', function (e) { e.stopPropagation(); pickAnotherQuote(); });
   // 앱의 '연결 설정'은 같은 페이지에 #gas=... 만 바꿔 넘긴다 → 새로고침 없이 받아 저장
   window.addEventListener('hashchange', function () {
     captureConfigFromHash();
