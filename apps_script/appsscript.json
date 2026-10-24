@@ -3,8 +3,7 @@
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8",
   "oauthScopes": [
-    "https://www.googleapis.com/auth/calendar.readonly",
-    "https://www.googleapis.com/auth/drive.file"
+    "https://www.googleapis.com/auth/calendar.readonly"
   ],
   "webapp": {
     "executeAs": "USER_DEPLOYING",

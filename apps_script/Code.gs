@@ -3,7 +3,7 @@
  *
  * GET  ?token=...   대시보드가 호출. 업무 일정 + 인용구를 한 번에 돌려준다.
  * POST {token, bundle}  옵시디언 플러그인(obsidian_plugin/)이 호출. Books 폴더 노트를 묶어 보낸다.
- *                       인용구만 뽑아 구글 드라이브의 JSON 파일 하나에 저장한다.
+ *                       인용구만 뽑아 스크립트 속성에 압축해 저장한다 (드라이브 권한 불필요).
  *
  * - 업무 캘린더는 지정한 하나만 읽는다. 기본 캘린더로 대신 넘어가지 않는다(개인 일정 노출 방지).
  * - 일정은 제목·시간만 보낸다. 장소·설명·참석자는 보내지 않는다.
@@ -16,7 +16,7 @@
  *   DAYS_AHEAD      선택. 일반 일정을 며칠 앞까지 받을지. 기본 14
  *   DEADLINE_DAYS   선택. [마감]/[D] 일정을 며칠 앞까지 받을지. 기본 60
  *   QUOTE_MAX_CHARS 선택. 이보다 긴 인용구는 건너뛴다. 기본 300
- *   QUOTES_FILE_ID  자동. 인용구 JSON 파일 ID (처음 POST 때 생성)
+ *   QUOTES_N, QUOTES_0.. 자동. 압축한 인용구 조각 (직접 고치지 말 것)
  */
 
 var DEADLINE_RE = /\[(마감|D)\]/;
@@ -117,10 +117,15 @@ function doPost(e) {
   if (!quotes.length) return json_({ error: 'no quotes found', files: files.length });
 
   var tz = Session.getScriptTimeZone();
-  saveQuotes_(props, {
-    updated_at: Utilities.formatDate(new Date(), tz, "yyyy-MM-dd'T'HH:mm:ssXXX"),
-    quotes: quotes
-  });
+  try {
+    saveQuotes_(props, {
+      updated_at: Utilities.formatDate(new Date(), tz, "yyyy-MM-dd'T'HH:mm:ssXXX"),
+      quotes: quotes
+    });
+  } catch (err) {
+    // 저장 실패도 JSON 으로 돌려줘야 플러그인 화면에 이유가 보인다
+    return json_({ error: 'save failed: ' + (err && err.message || err), quotes: quotes.length });
+  }
   return json_({ ok: true, files: files.length, quotes: quotes.length, skipped_long: skipped });
 }
 
@@ -203,24 +208,36 @@ function plainLength_(s) {
   return s.replace(/\*\*/g, '').replace(/\s+/g, ' ').length;
 }
 
+/*
+ * 인용구 저장소: 스크립트 속성에 gzip + base64 로 압축해 조각내어 넣는다.
+ * 속성 하나는 9KB, 전체 500KB 까지라 8000자씩 나눈다. 한국어 글은 압축이 잘 돼 인용구 수천 개가 들어간다.
+ */
+var QUOTE_CHUNK = 8000;
+
 function loadQuotes_(props) {
-  var id = props.getProperty('QUOTES_FILE_ID');
-  if (!id) return { updated_at: null, quotes: [] };
+  var n = Number(props.getProperty('QUOTES_N')) || 0;
+  if (!n) return { updated_at: null, quotes: [] };
   try {
-    return JSON.parse(DriveApp.getFileById(id).getBlob().getDataAsString('UTF-8'));
+    var b64 = '';
+    for (var i = 0; i < n; i++) b64 += props.getProperty('QUOTES_' + i) || '';
+    var gz = Utilities.newBlob(Utilities.base64Decode(b64), 'application/x-gzip');
+    return JSON.parse(Utilities.ungzip(gz).getDataAsString('UTF-8'));
   } catch (err) {
     return { updated_at: null, quotes: [], error: String(err) };
   }
 }
 
 function saveQuotes_(props, data) {
-  var content = JSON.stringify(data);
-  var id = props.getProperty('QUOTES_FILE_ID');
-  if (id) {
-    try { DriveApp.getFileById(id).setContent(content); return; } catch (err) { /* 지워졌으면 새로 만든다 */ }
-  }
-  var file = DriveApp.createFile('eink_dashboard_quotes.json', content, 'application/json');
-  props.setProperty('QUOTES_FILE_ID', file.getId());
+  var blob = Utilities.newBlob(JSON.stringify(data), 'application/json', 'quotes.json');
+  var b64 = Utilities.base64Encode(Utilities.gzip(blob).getBytes());
+  var chunks = {};
+  var n = Math.ceil(b64.length / QUOTE_CHUNK);
+  for (var i = 0; i < n; i++) chunks['QUOTES_' + i] = b64.slice(i * QUOTE_CHUNK, (i + 1) * QUOTE_CHUNK);
+  chunks.QUOTES_N = String(n);
+  // 예전 조각이 더 많았으면 남은 것을 지운다
+  var old = Number(props.getProperty('QUOTES_N')) || 0;
+  props.setProperties(chunks);
+  for (var k = n; k < old; k++) props.deleteProperty('QUOTES_' + k);
 }
 
 function json_(obj) {
