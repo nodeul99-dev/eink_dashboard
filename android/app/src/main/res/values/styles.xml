@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 흰 배경, 제목줄 없음. 전자잉크에서 깜빡임을 줄이려고 창 애니메이션도 끈다 -->
+    <style name="Dashboard" parent="@android:style/Theme.Material.Light.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowContentTransitions">false</item>
+    </style>
+</resources>

@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'dev.nodeul99.eink'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'dev.nodeul99.eink'
+        minSdk 26
+        targetSdk 34
+        // CI 가 실행 번호를 넘겨주면 그걸 버전 코드로 쓴다 (업데이트 설치가 되도록 계속 증가)
+        versionCode (System.getenv('VERSION_CODE') ?: '1').toInteger()
+        versionName "1.0." + (System.getenv('VERSION_CODE') ?: '0')
+    }
+
+    // 개인용 사이드로드 앱이라 서명 키를 레포에 둔다. 같은 키로 서명해야 덮어쓰기 업데이트가 된다.
+    signingConfigs {
+        release {
+            storeFile file('../eink-dashboard.keystore')
+            storePassword 'einkdashboard'
+            keyAlias 'eink'
+            keyPassword 'einkdashboard'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

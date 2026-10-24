@@ -31,6 +31,7 @@
   var params = parseQuery(location.search.slice(1));
   var DEMO = params.demo === '1';
   var SHOW_CLOCK = params.clock !== '0';
+  var IN_APP = !!window.EinkApp;   // 전용 안드로이드 앱 안에서 열렸는지
 
   var data = null;          // 마지막으로 받은 데이터
   var sync = { state: 'idle', lastError: null };
@@ -277,7 +278,7 @@
       if ((now - toDate(at.slice(0, 16))) > 24 * 3600000) s = '⚠ ' + s;
       if (sync.lastError) s += ' · 마지막 시도 실패';
     }
-    setHtml('status', (s ? s + ' · ' : '') + '화면을 누르면 동기화');
+    setHtml('status', (s ? s + ' · ' : '') + (IN_APP ? '누르면 동기화 · 길게 누르면 메뉴' : '화면을 누르면 동기화'));
   }
 
   function renderAll() {
@@ -370,7 +371,15 @@
   syncNow();
   setInterval(syncNow, SYNC_MIN * 60000);
   window.addEventListener('online', function () { setTimeout(syncNow, 3000); });
-  document.addEventListener('click', function () { enterFullscreen(); syncNow(); });
+  document.addEventListener('click', function () { if (!IN_APP) enterFullscreen(); syncNow(); });
+  // 앱의 '연결 설정'은 같은 페이지에 #gas=... 만 바꿔 넘긴다 → 새로고침 없이 받아 저장
+  window.addEventListener('hashchange', function () {
+    captureConfigFromHash();
+    if (!DEMO) data = load(KEY_DATA);
+    syncNow();
+  });
+  // 앱 메뉴의 '지금 동기화'
+  window.einkSync = syncNow;
   // 전체화면 전환 등으로 화면 높이가 바뀌면 글자 맞춤을 다시 한다
   window.addEventListener('resize', function () { scheduleFit('cal'); scheduleFit('quote'); });
 
