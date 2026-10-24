@@ -12,7 +12,7 @@ body {
 #app { height: 100%; display: flex; flex-direction: column; padding: 0.6rem 0.85rem 0.5rem; }
 .pane { overflow: hidden; position: relative; }
 .cal { flex: 55 1 0; }
-.quote { flex: 45 1 0; border-top: 3px solid #000; padding-top: 0.5rem; margin-top: 0.4rem; }
+.quote { flex: 45 1 0; padding-top: 0.2rem; margin-top: 0.4rem; }   /* 위 칸과의 구분선 없음: 메모지가 경계 역할 */
 
 .top { display: flex; justify-content: space-between; align-items: baseline;
        border-bottom: 3px solid #000; padding-bottom: 0.2rem; margin-bottom: 0.45rem; }
@@ -52,8 +52,7 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .foot-btns { display: flex; align-items: center; }
 .foot-btns > * + * { margin-left: 0.6em; }
 .foot .h2btn { font: inherit; line-height: 1; background: #fff; color: #000;
-               border: 1.5px solid #000; border-radius: 0.3em; padding: 0.25em 0.5em; display: flex; align-items: center; }
-.foot #quote-next { border: 0; padding: 0.25em 0.2em; }
+               border: 0; padding: 0.25em 0.2em; display: flex; align-items: center; }   /* 버튼 윤곽선 없음 */
 .foot #quote-next svg { width: 1.3em; height: 1.3em; }
 
 .q-text { font-size: 0.9em; line-height: 1.5; word-break: keep-all; }
@@ -61,19 +60,15 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .quote { display: flex; flex-direction: column; }
 #quote-fit { display: flex; flex-direction: column;   /* 출처를 늘 메모지 오른쪽 아래에 */
              --fold: 16px;   /* 정수 px: 선이 픽셀 경계에 맞아 번지지 않게 */
-             flex: 1 1 auto; position: relative; background: #f0f0f0; border: 2px solid #000;   /* 아주 옅은 음영 (접힌 부분 #d0d0d0 보다 옅게) */
+             flex: 1 1 auto; position: relative; background: #e6e6e6; border: 2px solid #000;   /* 옅은 음영 (접힌 부분 #c4c4c4 보다 옅게) */
             
              padding: 0.8em 1em 0.7em 1em; margin-top: 0.1em;   /* 글 좌우 여백 같게 */
              clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%); }
-/* 접힌 모서리: 메모지 바깥 모서리에 딱 맞춘 삼각형 두 겹.
-   검은 삼각형 위에 안쪽으로 줄인 회색 삼각형을 얹어 세 변을 선으로 만든다.
-   가로·세로 변은 테두리와 같은 2px. 빗변만 1.5px: 비스듬한 선은 가장자리 회색이
-   전자잉크에서 검게 번져 굵어 보이므로. (빗변 1.5px → 축 방향으로 1.5·√2 ≈ 2.12px) */
-#quote-fit::before, #quote-fit::after { content: ''; position: absolute; top: -2px; right: -2px;
-                                        width: var(--fold); height: var(--fold); }
-#quote-fit::before { background: #000; clip-path: polygon(0 0, 0 100%, 100% 100%); }
-#quote-fit::after { background: #d0d0d0;
-                    clip-path: polygon(2px 4.12px, 2px calc(100% - 2px), calc(100% - 4.12px) calc(100% - 2px)); }
+/* 접힌 모서리: 16px SVG 한 장. 가로·세로·빗변 모두 테두리와 같은 2px 검은 면.
+   shape-rendering=crispEdges 로 가장자리 회색(안티앨리어싱)을 없애 전자잉크에서 굵기가 고르게 나온다.
+   메모지 바깥 모서리(top/right -2px)에 딱 맞춰 붙인다 */
+#quote-fit::after { content: ''; position: absolute; top: -2px; right: -2px; width: var(--fold); height: var(--fold);
+                    background: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"%3E%3Cpath d="M0 0V16H16Z" fill="%23c4c4c4"/%3E%3Cpath d="M0 0H2V16H0Z M0 14H16V16H0Z M0 0L16 16H13.17L0 2.83Z" fill="%23000"/%3E%3C/svg%3E') no-repeat; background-size: 100% 100%; }
 /* 노트에서 굵게·형광펜 친 부분은 굵게 대신 밑줄 (글씨 굵기는 모두 보통) */
 .q-text { font-weight: 400; }
 .q-text b { font-weight: 400; text-decoration: underline; text-underline-offset: 0.2em; }
