@@ -16,7 +16,7 @@ body {
 
 .top { display: flex; justify-content: space-between; align-items: baseline;
        border-bottom: 3px solid #000; padding-bottom: 0.2rem; margin-bottom: 0.45rem; }
-.date { font-size: 1.35em; font-weight: 700; }
+.date { font-size: 1.2em; font-weight: 700; }
 
 /* 다음 일정 강조 상자 */
 .hero { border: 3px solid #000; padding: 0.35em 0.55em 0.4em; margin-bottom: 0.55em; }
@@ -53,6 +53,6 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .h2btn { font: inherit; font-size: 0.99em; line-height: 1; background: #fff; color: #000;
          border: 2px solid #000; border-radius: 0.3em; padding: 0.15em 0.45em; margin-bottom: 0.15em;
          display: flex; align-items: center; }
-.q-text { font-size: 1em; line-height: 1.5; white-space: pre-line; word-break: keep-all; }
+.q-text { font-size: 1em; line-height: 1.5; word-break: keep-all; text-indent: 1em; }   /* 문단마다 첫 줄 한 칸 들여쓰기 */
 .q-text b { font-weight: 700; }
-.q-by { font-size: 0.7em; margin-top: 0.4em; text-align: right; }
+.q-by { font-size: 0.7em; margin-top: 1.2em; text-align: right; }

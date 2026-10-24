@@ -243,9 +243,12 @@
       return;
     }
     var q = quotes[currentQuoteIndex(quotes, now)];
-    var text = esc(q.text).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\*\*/g, '');
+    // 줄바꿈마다 문단을 나눠 문단마다 첫 줄을 들여 쓴다
+    var paras = q.text.split('\n').filter(function (t) { return t.trim(); }).map(function (t) {
+      return '<p class="q-text">' + esc(t).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\*\*/g, '') + '</p>';
+    }).join('');
     var by = q.book + (q.author ? ', ' + q.author : '');
-    setHtml('quote-fit', '<p class="q-text">' + text + '</p><p class="q-by">— ' + esc(by) + '</p>');
+    setHtml('quote-fit', paras + '<p class="q-by">— ' + esc(by) + '</p>');
   }
 
   // ---------- 상태 줄 ----------
