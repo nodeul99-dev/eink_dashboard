@@ -1,6 +1,6 @@
 {
-  "name": "업무 캘린더",
-  "short_name": "업무 캘린더",
+  "name": "DS_CRO_대시보드",
+  "short_name": "DS_CRO",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
