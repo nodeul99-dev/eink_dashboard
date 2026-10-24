@@ -11,7 +11,7 @@
  *
  * 처음 한 번 아래 주소로 열면 연결 정보가 기기에 저장된다 (# 뒤는 서버로 전송되지 않음):
  *   index.html#gas=<Apps Script 웹앱 URL>&token=<TOKEN>
- * 옵션: ?demo=1 (예시 데이터로 보기)   ?clock=0 (시계 숨김)   #reset=1 (연결 정보 지우기)
+ * 옵션: ?demo=1 (예시 데이터로 보기)   #reset=1 (연결 정보 지우기)
  *
  * 전체화면: 브라우저는 사용자 조작 없이 전체화면을 허락하지 않으므로, 화면을 탭할 때 요청한다.
  * '홈 화면에 추가'로 열면 manifest 의 display: fullscreen 으로 처음부터 주소창 없이 열린다.
@@ -30,7 +30,6 @@
 
   var params = parseQuery(location.search.slice(1));
   var DEMO = params.demo === '1';
-  var SHOW_CLOCK = params.clock !== '0';
   var IN_APP = !!window.EinkApp;   // 전용 안드로이드 앱 안에서 열렸는지
 
   var data = null;          // 마지막으로 받은 데이터
@@ -130,7 +129,6 @@
   // ---------- 렌더 ----------
   function renderHeader(now) {
     setHtml('date', now.getFullYear() + '년 ' + (now.getMonth() + 1) + '월 ' + now.getDate() + '일 (' + DAYS[now.getDay()] + ')');
-    setHtml('clock', SHOW_CLOCK ? pad(now.getHours()) + ':' + pad(now.getMinutes()) : '');
   }
 
   function renderCalendar(now) {
@@ -337,14 +335,17 @@
     if (clear && history.replaceState) history.replaceState(null, '', location.pathname + location.search);
   }
 
-  function everyMinute() {
+  // 화면은 10분마다만 다시 계산한다 (시계가 없고, 남은 시간도 10분 단위라 그보다 자주 볼 필요가 없다).
+  // 내용이 바뀐 영역만 다시 그리므로 실제로 전자잉크가 갱신되는 일은 더 드물다.
+  var RENDER_EVERY_MS = 10 * 60000;
+  function everyTenMinutes() {
     renderAll();
-    setTimeout(everyMinute, 60000 - (Date.now() % 60000) + 50);
+    setTimeout(everyTenMinutes, RENDER_EVERY_MS - (Date.now() % RENDER_EVERY_MS) + 50);
   }
 
   captureConfigFromHash();
   if (!DEMO) data = load(KEY_DATA);
-  everyMinute();
+  everyTenMinutes();
   syncNow();
   setInterval(syncNow, SYNC_MIN * 60000);
   window.addEventListener('online', function () { setTimeout(syncNow, 3000); });

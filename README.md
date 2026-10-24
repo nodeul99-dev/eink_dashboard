@@ -207,7 +207,6 @@ https://nodeul99-dev.github.io/eink_dashboard/#gas=<웹 앱 URL>&token=<TOKEN>
 | 옵션 | 뜻 |
 |---|---|
 | `?demo=1` | 예시 데이터로 보기 (연결 불필요) |
-| `?clock=0` | 시계 숨김 (매분 바뀌는 영역이 없어진다) |
 | `#reset=1` | 저장된 연결 정보·데이터 지우기 |
 
 ---
