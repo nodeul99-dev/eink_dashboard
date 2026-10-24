@@ -72,7 +72,8 @@
   }
   function addDays(s, n) { var d = toDate(s); d.setDate(d.getDate() + n); return ymd(d); }
   function md(s) { return +s.slice(5, 7) + '/' + +s.slice(8, 10); }
-  function mdDow(s) { return md(s) + ' (' + DAYS[toDate(s).getDay()] + ')'; }
+  // 다가오는 일정 날짜: MM/DD (요일) — 두 자리로 맞춰 세로 정렬
+  function mmddDow(s) { return s.slice(5, 7) + '/' + s.slice(8, 10) + ' (' + DAYS[toDate(s).getDay()] + ')'; }
   function hm(s) { return s.slice(11, 16); }
 
   function setHtml(id, html) {
@@ -178,7 +179,7 @@
         if (lines >= WEEK_MAX_LINES) { more++; return; }
         lines++;
         // 날짜는 그날 첫 일정에만 적는다
-        weekHtml += '<li><span class="d">' + (i === 0 ? mdDow(d) : '') + '</span><span class="t">' +
+        weekHtml += '<li><span class="d">' + (i === 0 ? mmddDow(d) : '') + '</span><span class="t">' +
           (ev.all_day ? '종일' : hm(ev.start)) + '</span><span class="x">' + esc(cleanTitle(ev.title)) + '</span></li>';
       });
     }

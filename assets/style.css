@@ -42,7 +42,7 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 /* 칸 제목 앞 세로 막대 (글꼴과 상관없이 선명하게 CSS 로 그림) */
 .h2t::before { content: ''; display: inline-block; width: 0.22em; height: 0.95em; background: #000;
                margin-right: 0.35em; vertical-align: -0.12em; }
-.list .d { flex: none; min-width: 4.6em; font-size: 0.85em; font-weight: 700; padding-top: 0.12em; }
+.list .d { flex: none; min-width: 4.9em; font-variant-numeric: tabular-nums; font-size: 0.85em; font-weight: 700; padding-top: 0.12em; }
 .empty { font-size: 0.85em; }
 
 .status { font-size: 0.55rem; padding-top: 0.25rem; flex: none; text-align: right; }
@@ -59,6 +59,13 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 #quote-next { border: 0; padding: 0.15em 0.2em; }
 .h2mode { font-size: 0.7em; font-weight: 400; padding: 0.3em 0.55em; }
 .q-text { font-size: 0.9em; line-height: 1.5; word-break: keep-all; padding-left: 1em; }   /* 인용구 전체를 한 칸 들여쓰기 */
+/* 책갈피 카드: 흰 카드 + 각진 검은 그림자 + 오른쪽 위 접힌 모서리. 칸 아래를 꽉 채운다 */
+.quote { display: flex; flex-direction: column; }
+#quote-fit { flex: 1 1 auto; position: relative; background: #fff; border: 2px solid #000;
+             padding: 0.8em 1em 0.7em 0.6em; margin: 0.5em 0.45em 0.45em 0; box-shadow: 0.35em 0.35em 0 #000; }
+#quote-fit::after { content: ''; position: absolute; top: -2px; right: -2px; width: 1.5em; height: 1.5em;
+                    background: linear-gradient(225deg, #fff 50%, #000 50%, #000 calc(50% + 2px), #d0d0d0 calc(50% + 2px));
+                    border-left: 2px solid #000; border-bottom: 2px solid #000; }
 /* 노트에서 굵게·형광펜 친 부분은 굵게 대신 밑줄 (글씨 굵기는 모두 보통) */
 .q-text { font-weight: 400; }
 .q-text b { font-weight: 400; text-decoration: underline; text-underline-offset: 0.2em; }
