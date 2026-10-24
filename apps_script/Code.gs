@@ -2,7 +2,7 @@
  * 업무 캘린더 + 독서 인용구 → Poke3 대시보드 중계 (Google Apps Script 웹앱)
  *
  * GET  ?token=...   대시보드가 호출. 업무 일정 + 인용구를 한 번에 돌려준다.
- * POST {token, bundle}  아이폰 단축어가 호출. 옵시디언 books 폴더 노트를 묶어 보낸다.
+ * POST {token, bundle}  옵시디언 플러그인(obsidian_plugin/)이 호출. Books 폴더 노트를 묶어 보낸다.
  *                       인용구만 뽑아 구글 드라이브의 JSON 파일 하나에 저장한다.
  *
  * - 업무 캘린더는 지정한 하나만 읽는다. 기본 캘린더로 대신 넘어가지 않는다(개인 일정 노출 방지).
@@ -90,7 +90,7 @@ function addDays_(d, n) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 }
 
-// ---------- 인용구 (아이폰 단축어 → doPost) ----------
+// ---------- 인용구 (옵시디언 플러그인 → doPost) ----------
 
 var FILE_MARK = /^@@@FILE@@@ ?(.*)$/;
 
@@ -113,7 +113,7 @@ function doPost(e) {
       quotes.push({ text: text, book: book.title, author: book.author });
     });
   });
-  // 파일이 하나도 안 왔거나 인용구가 0개면 기존 저장분을 지우지 않는다 (단축어 오작동 대비)
+  // 파일이 하나도 안 왔거나 인용구가 0개면 기존 저장분을 지우지 않는다 (전송 오작동 대비)
   if (!quotes.length) return json_({ error: 'no quotes found', files: files.length });
 
   var tz = Session.getScriptTimeZone();

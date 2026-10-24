@@ -249,7 +249,7 @@
   function renderQuote(now) {
     var quotes = data && data.quotes || [];
     if (!quotes.length) {
-      setHtml('quote-fit', '<p class="empty">' + (data ? '받아 둔 인용구가 없습니다 (아이폰 단축어 실행 필요)' : '') + '</p>');
+      setHtml('quote-fit', '<p class="empty">' + (data ? '받아 둔 인용구가 없습니다 (옵시디언 플러그인에서 보내기 필요)' : '') + '</p>');
       return;
     }
     var order = quoteOrder(quotes);

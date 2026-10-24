@@ -1,0 +1,9 @@
+{
+  "id": "eink-quotes",
+  "name": "DS_CRO 대시보드 인용구",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Books 폴더 독서 노트를 Poke3 대시보드(Apps Script)로 보낸다.",
+  "author": "nodeul99-dev",
+  "isDesktopOnly": false
+}

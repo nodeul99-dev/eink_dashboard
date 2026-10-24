@@ -30,10 +30,11 @@
 | `manifest.webmanifest`, `sw.js` | 홈 화면 앱(전체 화면) 설정, 오프라인용 페이지 저장 |
 | `android/` | Poke3 전용 홈 앱(APK). 위 웹페이지를 전체 화면으로 띄우고 기기를 제어한다 |
 | `apps_script/` | 구글 계정에서 돌아가는 중계 스크립트. 업무 캘린더 읽기 + 인용구 저장·전달 |
+| `obsidian_plugin/eink-quotes/` | 옵시디언 플러그인. Books 폴더 독서 노트를 Apps Script로 보낸다 |
 | `data/demo.json` | `?demo=1` 로 열 때 쓰는 예시 데이터 |
 
 ```
-[옵시디언 books 폴더] ──아이폰 단축어(매일 아침)──▶ [Apps Script] ──▶ 구글 드라이브에 인용구 저장
+[옵시디언 Books 폴더] ──플러그인(노트 저장 시)───▶ [Apps Script] ──▶ 구글 드라이브에 인용구 저장
 [구글 캘린더 '업무'] ─────────────────────────────▶ [Apps Script]
                                                     │ 토큰 확인 후 일정 2주치 + 인용구
                                                     ▼
@@ -121,30 +122,35 @@ https://nodeul99-dev.github.io/eink_dashboard/#gas=<웹 앱 URL>&token=<TOKEN>
 
 연결을 지우려면 `...eink_dashboard/#reset=1` 을 연다.
 
-### 4. 아이폰 단축어 (옵시디언 인용구 보내기)
-옵시디언 Sync는 아이폰 안에 실제 파일을 두므로 단축어가 `books` 폴더를 읽을 수 있다.
+### 4. 옵시디언 플러그인 (인용구 보내기)
+독서 노트를 쓰는 옵시디언 안에서 인용구를 보낸다. PC와 Poke3는 직접 연결되지 않는다.
+플러그인이 Apps Script(구글 드라이브)라는 **우편함**에 넣고, Poke3는 동기화할 때 거기서 꺼내 간다.
 
-단축어 앱 → **새 단축어** (이름 예: `인용구 보내기`)
+```
+[옵시디언 (집 PC·회사 PC·아이폰 어디든)] ─ 노트 저장 시 ─▶ [Apps Script → 드라이브]  ◀─ 동기화 시 ─ [Poke3]
+```
 
-1. **폴더 내용 가져오기**: `파일 → 나의 iPhone → Obsidian → (볼트 이름) → books`
-2. **각 항목을 반복**
-   1. **텍스트 가져오기**: 입력 = `반복 항목`  (노트 내용)
-   2. **텍스트**: 아래처럼 세 줄로 적는다
-      ```
-      @@@FILE@@@ [반복 항목 → 이름]
-      [텍스트]
-      ```
-3. **반복 끝** 다음에 **텍스트 결합**: `반복 결과`, 구분자 `새로운 줄`
-4. **URL의 콘텐츠 가져오기**
-   - URL: 웹 앱 URL
-   - 방법: `POST`, 요청 본문: `JSON`
-   - 필드 `token` (텍스트) = TOKEN, 필드 `bundle` (텍스트) = `결합된 텍스트`
-5. (처음 확인용) **결과 보기** → `{"ok":true,"files":12,"quotes":340,...}` 처럼 나오면 성공
+- 보내는 때: 옵시디언을 켤 때, Books 노트를 고친 뒤 1분이 지나면, 명령 팔레트 `인용구 지금 보내기`
+- 내용이 지난번과 같으면 보내지 않는다. 기록이 Obsidian Sync로 공유돼 여러 기기가 중복으로 보내지 않는다
+- 자동 전송이 실패해도(오프라인 등) 알림을 띄우지 않고 다음 기회에 다시 보낸다
+- 처음 한 번은 Books 폴더 전체를 보낸다. 이후로도 매번 전체를 보내 우편함을 통째로 바꾸므로, 고치거나 지운 인용구도 반영된다
 
-**자동화**: 단축어 앱 → 자동화 → 새로운 자동화 → **특정 시간**(매일 06:30) → `즉시 실행` → 위 단축어.
-이후 Poke3가 다음 동기화 때 새 인용구를 받는다.
-
-> `books` 안에 하위 폴더가 있으면 그 안의 노트는 읽히지 않는다(1단계가 폴더만 돌려준다). 노트는 `books` 바로 아래에 둘 것.
+설치 (PC에서 한 번):
+1. 옵시디언에서 볼트 폴더 열기: 왼쪽 아래 볼트 이름 → `볼트 관리` 또는 파일 탐색기에서 볼트 폴더로 이동
+2. 볼트 폴더 안 `.obsidian/plugins/` 에 `eink-quotes` 폴더를 만든다
+   (`.obsidian` 은 숨김 폴더다. 탐색기 `보기 → 숨긴 항목` 을 켠다)
+3. 아래 두 파일을 받아 그 폴더에 넣는다 (링크에서 `Ctrl+S` 로 저장)
+   - https://raw.githubusercontent.com/nodeul99-dev/eink_dashboard/main/obsidian_plugin/eink-quotes/manifest.json
+   - https://raw.githubusercontent.com/nodeul99-dev/eink_dashboard/main/obsidian_plugin/eink-quotes/main.js
+4. 옵시디언 `설정 → 커뮤니티 플러그인` → `제한 모드 끄기` → 설치된 플러그인 목록 새로고침(↻)
+   → **DS_CRO 대시보드 인용구** 켜기
+5. 그 플러그인의 설정(⚙):
+   - `웹 앱 URL` 에 `https://script.google.com/macros/s/.../exec?token=...` 한 줄을 통째로 붙여 넣으면
+     URL과 TOKEN이 알아서 나뉘어 들어간다
+   - `독서 노트 폴더`: `Books` (볼트 안 실제 폴더 이름과 같게)
+   - `지금 보내기 → 보내기` → `노트 N개 → 인용구 M개` 가 나오면 성공
+6. 다른 기기에도 퍼지게: `설정 → 동기화` 에서 `설치된 커뮤니티 플러그인`,
+   `활성 커뮤니티 플러그인 목록` 동기화를 켠다
 
 ### 5. Poke3 기기 설정
 - 충전기를 계속 연결해 둔다
@@ -212,7 +218,7 @@ https://nodeul99-dev.github.io/eink_dashboard/#gas=<웹 앱 URL>&token=<TOKEN>
 | 상태 줄 `동기화 실패 (오프라인)` | 핫스팟 연결 확인 후 화면 탭 |
 | `unauthorized` | Poke3 에 넣은 TOKEN 이 스크립트 속성의 TOKEN 과 같은지. 다르면 `#gas=...&token=...` 주소로 다시 열기 |
 | `work calendar not found` | 스크립트 속성 `CALENDAR_NAME`/`CALENDAR_ID` 철자 (`listCalendars` 로 확인) |
-| 일정은 나오는데 인용구가 없음 | 단축어를 한 번 실행했는지, 결과가 `ok:true` 인지 |
-| 단축어 결과 `no quotes found` | 폴더 경로가 `books` 인지, 노트에 `>` 인용 블록이 있는지 |
+| 일정은 나오는데 인용구가 없음 | 플러그인 설정의 `지금 보내기` 결과가 `노트 N개 → 인용구 M개` 인지 |
+| 플러그인 결과 `no quotes found` | `독서 노트 폴더` 이름이 맞는지, 노트에 `>` 인용 블록이 있는지 |
 | `DriveApp` 권한 오류 | `appsscript.json` 의 `drive.file` 을 `https://www.googleapis.com/auth/drive` 로 바꾸고 다시 승인 |
 | 코드를 고쳤는데 그대로 | Apps Script는 **새 버전으로 재배포**해야 반영된다 |
