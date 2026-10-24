@@ -60,15 +60,15 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .quote { display: flex; flex-direction: column; }
 #quote-fit { display: flex; flex-direction: column;   /* 출처를 늘 메모지 오른쪽 아래에 */
              --fold: 16px;   /* 정수 px: 선이 픽셀 경계에 맞아 번지지 않게 */
-             flex: 1 1 auto; position: relative; background: #e6e6e6; border: 2px solid #000;   /* 옅은 음영 (접힌 부분 #c4c4c4 보다 옅게) */
+             flex: 1 1 auto; position: relative; background: #e6e6e6; border: 2px solid #444;   /* 옅은 음영 (접힌 부분 #c4c4c4 보다 옅게) */
             
              padding: 0.8em 1em 0.7em 1em; margin-top: 0.1em;   /* 글 좌우 여백 같게 */
              clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%); }
-/* 접힌 모서리: 16px SVG 한 장. 가로·세로·빗변 모두 테두리와 같은 2px 검은 면.
+/* 접힌 모서리: 16px SVG 한 장. 가로·세로·빗변 모두 테두리와 같은 2px·같은 색(#444).
    shape-rendering=crispEdges 로 가장자리 회색(안티앨리어싱)을 없애 전자잉크에서 굵기가 고르게 나온다.
    메모지 바깥 모서리(top/right -2px)에 딱 맞춰 붙인다 */
 #quote-fit::after { content: ''; position: absolute; top: -2px; right: -2px; width: var(--fold); height: var(--fold);
-                    background: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"%3E%3Cpath d="M0 0V16H16Z" fill="%23c4c4c4"/%3E%3Cpath d="M0 0H2V16H0Z M0 14H16V16H0Z M0 0L16 16H13.17L0 2.83Z" fill="%23000"/%3E%3C/svg%3E') no-repeat; background-size: 100% 100%; }
+                    background: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"%3E%3Cpath d="M0 0V16H16Z" fill="%23c4c4c4"/%3E%3Cpath d="M0 0H2V16H0Z M0 14H16V16H0Z M0 0L16 16H13.17L0 2.83Z" fill="%23444"/%3E%3C/svg%3E') no-repeat; background-size: 100% 100%; }
 /* 노트에서 굵게·형광펜 친 부분은 굵게 대신 밑줄 (글씨 굵기는 모두 보통) */
 .q-text { font-weight: 400; }
 .q-text b { font-weight: 400; text-decoration: underline; text-underline-offset: 0.2em; }
