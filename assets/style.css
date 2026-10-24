@@ -59,10 +59,11 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 #quote-next { border: 0; padding: 0.15em 0.2em; }
 .h2mode { font-size: 0.7em; font-weight: 400; padding: 0.3em 0.55em; }
 .q-text { font-size: 0.9em; line-height: 1.5; word-break: keep-all; }
-/* 책갈피 카드: 흰 메모지 + 오른쪽 위 접힌 모서리 (그림자 없음). 칸 아래를 꽉 채운다 */
+/* 책갈피 카드: 옅은 회색 메모지 + 오른쪽 위 접힌 모서리 (그림자 없음). 칸 아래를 꽉 채운다 */
 .quote { display: flex; flex-direction: column; }
-#quote-fit { --fold: 1.2em; flex: 1 1 auto; position: relative; background: #fff; border: 2px solid #000;
-             padding: 0.8em 1.5em 0.7em 1em; margin-top: 0.1em;   /* 오른쪽 여백 > 접힌 모서리: 글자가 가려지지 않게 */
+#quote-fit { --fold: 1.2em; flex: 1 1 auto; position: relative; background: #f0f0f0; border: 2px solid #000;   /* 아주 옅은 음영 (접힌 부분 #d0d0d0 보다 옅게) */
+            
+             padding: 0.8em 1em 0.7em 1em; margin-top: 0.1em;   /* 글 좌우 여백 같게 */
              clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%); }
 /* 접힌 모서리: 메모지 바깥 모서리에 딱 맞춘 삼각형 두 겹.
    검은 삼각형 위에 2px 안쪽으로 줄인 회색 삼각형을 얹어, 세 변 모두 테두리와 같은 2px 선이 된다.
