@@ -61,12 +61,17 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .q-text { font-size: 0.9em; line-height: 1.5; word-break: keep-all; }
 /* 책갈피 카드: 흰 메모지 + 오른쪽 위 접힌 모서리 (그림자 없음). 칸 아래를 꽉 채운다 */
 .quote { display: flex; flex-direction: column; }
-#quote-fit { flex: 1 1 auto; position: relative; background: #fff; border: 2px solid #000;
+#quote-fit { --fold: 1.2em; flex: 1 1 auto; position: relative; background: #fff; border: 2px solid #000;
              padding: 0.8em 1.5em 0.7em 1em; margin-top: 0.1em;   /* 오른쪽 여백 > 접힌 모서리: 글자가 가려지지 않게 */
-             clip-path: polygon(0 0, calc(100% - 1.2em) 0, 100% 1.2em, 100% 100%, 0 100%); }
-#quote-fit::after { content: ''; position: absolute; top: 0; right: 0; width: 1.2em; height: 1.2em;
-                    background: linear-gradient(225deg, #fff 50%, #000 50%, #000 calc(50% + 2px), #c8c8c8 calc(50% + 2px));   /* 경사면 실선 */
-                    border-left: 2px solid #000; border-bottom: 2px solid #000; }
+             clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%); }
+/* 접힌 모서리: 메모지 바깥 모서리에 딱 맞춘 삼각형 두 겹.
+   검은 삼각형 위에 2px 안쪽으로 줄인 회색 삼각형을 얹어, 세 변 모두 테두리와 같은 2px 선이 된다.
+   (빗변 안쪽 2px 은 대각선 방향이라 2·√2 ≈ 2.83px 만큼 들어간다) */
+#quote-fit::before, #quote-fit::after { content: ''; position: absolute; top: -2px; right: -2px;
+                                        width: var(--fold); height: var(--fold); }
+#quote-fit::before { background: #000; clip-path: polygon(0 0, 0 100%, 100% 100%); }
+#quote-fit::after { background: #d0d0d0;
+                    clip-path: polygon(2px 4.83px, 2px calc(100% - 2px), calc(100% - 4.83px) calc(100% - 2px)); }
 /* 노트에서 굵게·형광펜 친 부분은 굵게 대신 밑줄 (글씨 굵기는 모두 보통) */
 .q-text { font-weight: 400; }
 .q-text b { font-weight: 400; text-decoration: underline; text-underline-offset: 0.2em; }
