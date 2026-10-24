@@ -151,7 +151,7 @@
         '<div class="hero-main">' + esc(cleanTitle(ongoing[0].title)) + '</div>';
     } else {
       // 오늘 일정만 다룬다. 내일 이후 일정은 끌어오지 않는다
-      hero = '<div class="hero-label">다음 일정</div><div class="hero-main">오늘 남은 일정 없음</div>';
+      hero = '<div class="hero-label">다음 일정</div><div class="hero-main none">오늘 남은 일정 없음</div>';
     }
     setHtml('hero', hero);
 

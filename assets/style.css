@@ -23,6 +23,7 @@ body {
 .hero-label { font-size: 0.85em; font-weight: 700; }
 .hero-main { font-size: 1.45em; font-weight: 700; line-height: 1.25; }
 .hero-main .t { margin-right: 0.35em; }
+.hero-main.none { font-size: 1.15em; }   /* '오늘 남은 일정 없음' 은 한 단계 작게 */
 
 section { margin-bottom: 0.5em; }
 h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
@@ -39,10 +40,10 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .list .d { flex: none; min-width: 4.6em; font-size: 0.85em; font-weight: 700; padding-top: 0.12em; }
 .empty { font-size: 0.85em; }
 
-.status { font-size: 0.7rem; padding-top: 0.25rem; flex: none; text-align: right; }
+.status { font-size: 0.55rem; padding-top: 0.25rem; flex: none; text-align: right; }
 
 /* 인용구 영역 제목 '책갈피': 글자 맞춤 대상 밖이라 늘 이 크기 */
-.quote h2 { font-size: 0.9rem; }   /* 인용문(.q-text 0.9em)과 같은 크기 */
-.q-text { font-size: 0.9em; line-height: 1.5; white-space: pre-line; word-break: keep-all; }
+.quote h2 { font-size: 1rem; }   /* 인용문(.q-text 1em)과 같은 크기 */
+.q-text { font-size: 1em; line-height: 1.5; white-space: pre-line; word-break: keep-all; }
 .q-text b { font-weight: 700; }
 .q-by { font-size: 0.7em; margin-top: 0.4em; text-align: right; }
