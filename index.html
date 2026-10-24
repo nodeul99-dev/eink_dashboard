@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/icons/icon-192.png">
 <!-- 화면 파일(css·js)을 고치면 아래 v= 값을 함께 올린다. HTML 과 스크립트가 늘 짝이 맞게 받아진다 -->
-<link rel="stylesheet" href="assets/style.css?v=20261024v">
+<link rel="stylesheet" href="assets/style.css?v=20261024y">
 </head>
 <body>
 <main id="app">
@@ -38,14 +38,15 @@
 
   <!-- 아래 45%: 독서 인용구 (책갈피) -->
   <div class="pane quote" id="quote">
-    <!-- 제목은 글자 맞춤(축소) 대상 밖에 둔다: 긴 인용구가 와도 다른 칸 제목과 같은 크기 -->
-    <h2><span class="h2t">책갈피</span><span class="h2btns"><button type="button" class="h2btn h2mode" id="quote-mode" aria-label="보기 방식">책 순서</button><button type="button" class="h2btn" id="quote-next" aria-label="다른 인용구"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round"/><path d="M20 3.5v5.5h-5.5" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></h2>
     <div class="fit" id="quote-fit"></div>
   </div>
 
-  <!-- 맨 아래: 마지막 동기화 시각 -->
-  <p class="status" id="status">&nbsp;</p>
+  <!-- 맨 아래 줄: 왼쪽 책갈피 버튼(보기 방식·다른 인용구), 오른쪽 마지막 동기화 시각 -->
+  <div class="foot">
+    <span class="foot-btns"><button type="button" class="h2btn h2mode" id="quote-mode" aria-label="보기 방식">책 순서</button><button type="button" class="h2btn" id="quote-next" aria-label="다른 인용구"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round"/><path d="M20 3.5v5.5h-5.5" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span>
+    <p class="status" id="status">&nbsp;</p>
+  </div>
 </main>
-<script src="assets/app.js?v=20261024v"></script>
+<script src="assets/app.js?v=20261024y"></script>
 </body>
 </html>

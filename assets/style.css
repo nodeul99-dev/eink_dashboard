@@ -37,42 +37,42 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .list .x { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .list .r { flex: none; font-size: 0.85em; }
 .h2r { float: right; font-weight: 400; font-size: 0.8em; padding-top: 0.15em; }
-/* 칸 제목(오늘·다가오는 일정·책갈피)은 모두 같은 크기. 글자 맞춤(축소)에 끌려가지 않게 rem 으로 고정 */
-.cal h2, .quote h2 { font-size: 1rem; }
+/* 칸 제목(오늘·다가오는 일정)은 같은 크기. 글자 맞춤(축소)에 끌려가지 않게 rem 으로 고정 */
+.cal h2 { font-size: 1rem; }
 /* 칸 제목 앞 세로 막대 (글꼴과 상관없이 선명하게 CSS 로 그림) */
 .h2t::before { content: ''; display: inline-block; width: 0.22em; height: 0.95em; background: #000;
                margin-right: 0.35em; vertical-align: -0.12em; }
 .list .d { flex: none; min-width: 4.9em; font-variant-numeric: tabular-nums; font-size: 0.85em; font-weight: 700; padding-top: 0.12em; }
 .empty { font-size: 0.85em; }
 
-.status { font-size: 0.55rem; padding-top: 0.25rem; flex: none; text-align: right; }
+/* 맨 아래 줄: 책갈피 버튼(왼쪽) + 동기화 시각(오른쪽). 버튼 글씨도 동기화 시각과 같은 크기 */
+.foot { flex: none; display: flex; justify-content: space-between; align-items: center;
+        font-size: 0.55rem; padding-top: 0.3rem; }
+.status { text-align: right; }
+.foot-btns { display: flex; align-items: center; }
+.foot-btns > * + * { margin-left: 0.6em; }
+.foot .h2btn { font: inherit; line-height: 1; background: #fff; color: #000;
+               border: 1.5px solid #000; border-radius: 0.3em; padding: 0.25em 0.5em; display: flex; align-items: center; }
+.foot #quote-next { border: 0; padding: 0.25em 0.2em; }
+.foot #quote-next svg { width: 1.3em; height: 1.3em; }
 
-/* 인용구 영역 제목 '책갈피': 글자 맞춤 대상 밖이라 늘 이 크기 */
-/* 책갈피 ↻ 버튼: 흑백 테두리, 손가락으로 누르기 쉬운 크기 */
-.quote h2 { display: flex; justify-content: space-between; align-items: center; border-bottom: 0; padding-bottom: 0; margin-bottom: 0.1em; }   /* 메모지가 있으니 제목 밑줄 없음 */
-.h2btn { font: inherit; font-size: 0.99em; line-height: 1; background: #fff; color: #000;
-         border: 2px solid #000; border-radius: 0.3em; padding: 0.15em 0.45em; margin-bottom: 0.15em;
-         display: flex; align-items: center; }
-.h2btns { display: flex; align-items: center; }
-.h2btns > * + * { margin-left: 0.4em; }
-/* ↻ 버튼은 테두리 없이 동그라미 아이콘만 */
-#quote-next { border: 0; padding: 0.15em 0.2em; }
-.h2mode { font-size: 0.7em; font-weight: 400; padding: 0.3em 0.55em; }
 .q-text { font-size: 0.9em; line-height: 1.5; word-break: keep-all; }
 /* 책갈피 카드: 옅은 회색 메모지 + 오른쪽 위 접힌 모서리 (그림자 없음). 칸 아래를 꽉 채운다 */
 .quote { display: flex; flex-direction: column; }
-#quote-fit { --fold: 1.2em; flex: 1 1 auto; position: relative; background: #f0f0f0; border: 2px solid #000;   /* 아주 옅은 음영 (접힌 부분 #d0d0d0 보다 옅게) */
+#quote-fit { --fold: 16px;   /* 정수 px: 선이 픽셀 경계에 맞아 번지지 않게 */
+             flex: 1 1 auto; position: relative; background: #f0f0f0; border: 2px solid #000;   /* 아주 옅은 음영 (접힌 부분 #d0d0d0 보다 옅게) */
             
              padding: 0.8em 1em 0.7em 1em; margin-top: 0.1em;   /* 글 좌우 여백 같게 */
              clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%); }
 /* 접힌 모서리: 메모지 바깥 모서리에 딱 맞춘 삼각형 두 겹.
-   검은 삼각형 위에 2px 안쪽으로 줄인 회색 삼각형을 얹어, 세 변 모두 테두리와 같은 2px 선이 된다.
-   (빗변 안쪽 2px 은 대각선 방향이라 2·√2 ≈ 2.83px 만큼 들어간다) */
+   검은 삼각형 위에 안쪽으로 줄인 회색 삼각형을 얹어 세 변을 선으로 만든다.
+   가로·세로 변은 테두리와 같은 2px. 빗변만 1.5px: 비스듬한 선은 가장자리 회색이
+   전자잉크에서 검게 번져 굵어 보이므로. (빗변 1.5px → 축 방향으로 1.5·√2 ≈ 2.12px) */
 #quote-fit::before, #quote-fit::after { content: ''; position: absolute; top: -2px; right: -2px;
                                         width: var(--fold); height: var(--fold); }
 #quote-fit::before { background: #000; clip-path: polygon(0 0, 0 100%, 100% 100%); }
 #quote-fit::after { background: #d0d0d0;
-                    clip-path: polygon(2px 4.83px, 2px calc(100% - 2px), calc(100% - 4.83px) calc(100% - 2px)); }
+                    clip-path: polygon(2px 4.12px, 2px calc(100% - 2px), calc(100% - 4.12px) calc(100% - 2px)); }
 /* 노트에서 굵게·형광펜 친 부분은 굵게 대신 밑줄 (글씨 굵기는 모두 보통) */
 .q-text { font-weight: 400; }
 .q-text b { font-weight: 400; text-decoration: underline; text-underline-offset: 0.2em; }
