@@ -243,7 +243,7 @@
       return;
     }
     var q = quotes[currentQuoteIndex(quotes, now)];
-    // 줄바꿈마다 문단을 나눠 문단마다 첫 줄을 들여 쓴다
+    // 줄바꿈마다 문단으로 나눈다
     var paras = q.text.split('\n').filter(function (t) { return t.trim(); }).map(function (t) {
       return '<p class="q-text">' + esc(t).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\*\*/g, '') + '</p>';
     }).join('');

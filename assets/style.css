@@ -53,6 +53,6 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .h2btn { font: inherit; font-size: 0.99em; line-height: 1; background: #fff; color: #000;
          border: 2px solid #000; border-radius: 0.3em; padding: 0.15em 0.45em; margin-bottom: 0.15em;
          display: flex; align-items: center; }
-.q-text { font-size: 0.9em; line-height: 1.5; word-break: keep-all; text-indent: 1em; }   /* 문단마다 첫 줄 한 칸 들여쓰기 */
+.q-text { font-size: 0.9em; line-height: 1.5; word-break: keep-all; padding-left: 1em; }   /* 인용구 전체를 한 칸 들여쓰기 */
 .q-text b { font-weight: 700; }
 .q-by { font-size: 0.7em; margin-top: 1.2em; text-align: right; }
