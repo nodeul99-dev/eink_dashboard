@@ -130,7 +130,7 @@
 
   // ---------- 렌더 ----------
   function renderHeader(now) {
-    setHtml('date', (now.getMonth() + 1) + '월 ' + now.getDate() + '일 (' + DAYS[now.getDay()] + ')');
+    setHtml('date', now.getFullYear() + '년 ' + (now.getMonth() + 1) + '월 ' + now.getDate() + '일 (' + DAYS[now.getDay()] + ')');
     setHtml('clock', SHOW_CLOCK ? pad(now.getHours()) + ':' + pad(now.getMinutes()) : '');
   }
 
@@ -278,7 +278,7 @@
       if ((now - toDate(at.slice(0, 16))) > 24 * 3600000) s = '⚠ ' + s;
       if (sync.lastError) s += ' · 마지막 시도 실패';
     }
-    setHtml('status', (s ? s + ' · ' : '') + (IN_APP ? '누르면 동기화 · 길게 누르면 메뉴' : '화면을 누르면 동기화'));
+    setHtml('status', s || '&nbsp;');
   }
 
   function renderAll() {
