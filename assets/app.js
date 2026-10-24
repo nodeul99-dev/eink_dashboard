@@ -72,7 +72,6 @@
     return new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10), +(s.slice(11, 13) || 0), +(s.slice(14, 16) || 0));
   }
   function addDays(s, n) { var d = toDate(s); d.setDate(d.getDate() + n); return ymd(d); }
-  function dayDiff(a, b) { return Math.round((toDate(b) - toDate(a)) / 86400000); }
   function md(s) { return +s.slice(5, 7) + '/' + +s.slice(8, 10); }
   function mdDow(s) { return md(s) + ' (' + DAYS[toDate(s).getDay()] + ')'; }
   function hm(s) { return s.slice(11, 16); }
@@ -141,7 +140,7 @@
     if (!data) {
       var msg = load(KEY_GAS) || DEMO ? '아직 동기화 전입니다' : '연동 정보가 없습니다 (README 참고)';
       setHtml('hero', '<div class="hero-label">' + msg + '</div>');
-      setHtml('today', ''); setHtml('week', ''); setHtml('dday', '');
+      setHtml('today', ''); setHtml('week', '');
       return;
     }
 
@@ -159,14 +158,8 @@
       hero = '<div class="hero-label">진행 중 · ' + hm(ongoing[0].end) + ' 종료</div>' +
         '<div class="hero-main">' + esc(cleanTitle(ongoing[0].title)) + '</div>';
     } else {
-      // 오늘 남은 일정이 없으면 받아 둔 범위 안에서 가장 가까운 일정
-      var later = (data.events || []).filter(function (ev) {
-        return ev.all_day ? ev.start > today : ev.start.slice(0, 10) > today;
-      }).sort(function (a, b) { return a.start < b.start ? -1 : 1; })[0];
-      hero = later
-        ? '<div class="hero-label">오늘 남은 일정 없음 · 다음은 ' + mdDow(later.start.slice(0, 10)) + '</div>' +
-          '<div class="hero-main">' + (later.all_day ? '' : '<span class="t">' + hm(later.start) + '</span>') + esc(cleanTitle(later.title)) + '</div>'
-        : '<div class="hero-label">예정된 일정 없음</div>';
+      // 오늘 일정만 다룬다. 내일 이후 일정은 끌어오지 않는다
+      hero = '<div class="hero-label">다음 일정</div><div class="hero-main">오늘 남은 일정 없음</div>';
     }
     setHtml('hero', hero);
 
@@ -182,16 +175,14 @@
     setHtml('today-done', done > 0 ? '지난 일정 ' + done + '건' : '');
     setHtml('today', html || '<li class="empty">' + (next ? '이후 일정 없음' : '없음') + '</li>');
 
-    // ── 이번 주 (금·토·일에는 다음 주 일요일까지)
-    var dow = now.getDay();
-    var toSunday = dow === 0 ? 7 : 7 - dow;
-    var isLate = dow === 5 || dow === 6 || dow === 0;
-    var lastDay = addDays(today, isLate ? toSunday + (dow === 0 ? 0 : 7) : toSunday);
-    setHtml('week-title', isLate ? '다음 주' : '이번 주');
-    var lines = 0, more = 0, weekHtml = '';
+    // ── 다가오는 일정: 내일부터 받아 둔 범위 끝까지 (최대 WEEK_MAX_LINES 줄)
+    var lastDay = data.range_end ? addDays(data.range_end, -1) : addDays(today, 14);
+    var lines = 0, more = 0, weekHtml = '', shown = todays.slice();   // 오늘 칸에 나온 일정은 빼고
     for (var d = addDays(today, 1); d <= lastDay; d = addDays(d, 1)) {
-      var evs = eventsOn(d).filter(function (ev) { return !DEADLINE_TAG.test(ev.title); });
+      // 여러 날에 걸친 일정은 처음 나오는 날에만 적는다
+      var evs = eventsOn(d).filter(function (ev) { return shown.indexOf(ev) < 0; });
       evs.forEach(function (ev, i) {
+        shown.push(ev);
         if (lines >= WEEK_MAX_LINES) { more++; return; }
         lines++;
         // 날짜는 그날 첫 일정에만 적는다
@@ -201,21 +192,7 @@
     }
     weekHtml = weekHtml ? '<ul class="list">' + weekHtml + '</ul>' : '';
     if (more) weekHtml += '<div class="empty">외 ' + more + '건</div>';
-    if (data.range_end && lastDay >= data.range_end) weekHtml += '<div class="empty">※ ' + md(data.range_end) + ' 이후는 아직 받지 않음</div>';
     setHtml('week', weekHtml || '<div class="empty">없음</div>');
-
-    // ── 마감 D-day (제목에 [마감] 또는 [D])
-    var dd = (data.deadlines || []).map(function (ev) {
-      var due = ev.all_day ? addDays(ev.end, -1) : ev.start.slice(0, 10);
-      return { title: cleanTitle(ev.title), due: due, n: dayDiff(today, due) };
-    }).filter(function (x) { return x.n >= 0; })
-      .sort(function (a, b) { return a.n - b.n; })
-      .slice(0, 4);
-    $('dday-section').style.display = dd.length ? '' : 'none';
-    setHtml('dday', dd.map(function (x) {
-      return '<li><span class="t">' + (x.n === 0 ? 'D-DAY' : 'D-' + x.n) + '</span><span class="x">' + esc(x.title) +
-        '</span><span class="r">' + mdDow(x.due) + '</span></li>';
-    }).join(''));
   }
 
   // ---------- 인용구 ----------

@@ -8,11 +8,11 @@ body {
   line-height: 1.35;
 }
 
-/* 화면 고정 분할: 캘린더 2 : 인용구 1. 각 영역은 넘치면 app.js 가 글자를 줄인다 */
+/* 화면 고정 분할: 캘린더 55 : 인용구(책갈피) 45. 각 영역은 넘치면 app.js 가 글자를 줄인다 */
 #app { height: 100%; display: flex; flex-direction: column; padding: 0.6rem 0.85rem 0.5rem; }
 .pane { overflow: hidden; position: relative; }
-.cal { flex: 2 1 0; }
-.quote { flex: 1 1 0; border-top: 3px solid #000; padding-top: 0.5rem; margin-top: 0.4rem; }
+.cal { flex: 55 1 0; }
+.quote { flex: 45 1 0; border-top: 3px solid #000; padding-top: 0.5rem; margin-top: 0.4rem; }
 
 .top { display: flex; justify-content: space-between; align-items: baseline;
        border-bottom: 3px solid #000; padding-bottom: 0.2rem; margin-bottom: 0.45rem; }
@@ -43,7 +43,7 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .status { font-size: 0.7rem; padding-top: 0.25rem; flex: none; text-align: right; }
 
 /* 인용구 영역 제목 '책갈피': 글자 맞춤 대상 밖이라 늘 이 크기 */
-.quote h2 { font-size: 0.9rem; }
-.q-text { font-size: 1.15em; line-height: 1.5; white-space: pre-line; word-break: keep-all; }
+.quote h2 { font-size: 0.9rem; }   /* 인용문(.q-text 0.9em)과 같은 크기 */
+.q-text { font-size: 0.9em; line-height: 1.5; white-space: pre-line; word-break: keep-all; }
 .q-text b { font-weight: 700; }
-.q-by { font-size: 0.8em; margin-top: 0.4em; text-align: right; }
+.q-by { font-size: 0.7em; margin-top: 0.4em; text-align: right; }
