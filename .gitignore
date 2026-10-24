@@ -1,2 +1,7 @@
 .DS_Store
 .env
+# 안드로이드 빌드 산출물·캐시
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties

@@ -14,12 +14,9 @@
  *   CALENDAR_NAME   업무 캘린더 이름 (예: 업무)          ┐ 둘 중 하나 필수
  *   CALENDAR_ID     업무 캘린더 ID (listCalendars() 로 확인) ┘ ID 가 있으면 ID 우선
  *   DAYS_AHEAD      선택. 일반 일정을 며칠 앞까지 받을지. 기본 14
- *   DEADLINE_DAYS   선택. [마감]/[D] 일정을 며칠 앞까지 받을지. 기본 60
  *   QUOTE_MAX_CHARS 선택. 이보다 긴 인용구는 건너뛴다. 기본 300
  *   QUOTES_N, QUOTES_0.. 자동. 압축한 인용구 조각 (직접 고치지 말 것)
  */
-
-var DEADLINE_RE = /\[(마감|D)\]/;
 
 function doGet(e) {
   var props = PropertiesService.getScriptProperties();
@@ -40,22 +37,14 @@ function buildPayload_(props) {
   var now = new Date();
   var start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   var daysAhead = Number(props.getProperty('DAYS_AHEAD')) || 14;
-  var deadlineDays = Number(props.getProperty('DEADLINE_DAYS')) || 60;
   var end = addDays_(start, daysAhead + 1);
 
   var events = cal.getEvents(start, end).map(function (ev) { return toItem_(ev, tz); });
-
-  // D-day 는 더 멀리까지 본다. 제목에 [마감] 또는 [D] 가 있는 일정만.
-  var deadlines = cal.getEvents(start, addDays_(start, deadlineDays + 1))
-    .filter(function (ev) { return DEADLINE_RE.test(ev.getTitle()); })
-    .map(function (ev) { return toItem_(ev, tz); });
-
   var q = loadQuotes_(props);
   return {
     generated_at: Utilities.formatDate(now, tz, "yyyy-MM-dd'T'HH:mm:ssXXX"),
     range_end: Utilities.formatDate(end, tz, 'yyyy-MM-dd'),
     events: events,
-    deadlines: deadlines,
     quotes_updated_at: q.updated_at,
     quotes: q.quotes
   };

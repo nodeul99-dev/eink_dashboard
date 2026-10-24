@@ -25,7 +25,6 @@
   var SYNC_MIN = 30;
   var QUOTE_FIRST_HOUR = 7;   // 07시부터
   var QUOTE_LAST_HOUR = 17;   // 17시까지 매시 정각에 바뀐다
-  var DEADLINE_TAG = /\s*\[(마감|D)\]\s*/;
   var WEEK_MAX_LINES = 6;
 
   var params = parseQuery(location.search.slice(1));
@@ -119,7 +118,6 @@
     return list;
   }
 
-  function cleanTitle(t) { return t.replace(new RegExp(DEADLINE_TAG.source, 'g'), ' ').trim(); }
 
   // ---------- 렌더 ----------
   function renderHeader(now) {
@@ -146,10 +144,10 @@
     var hero;
     if (next) {
       hero = '<div class="hero-label">다음 일정</div>' +
-        '<div class="hero-main"><span class="t">' + hm(next.start) + '</span>' + esc(cleanTitle(next.title)) + '</div>';
+        '<div class="hero-main"><span class="t">' + hm(next.start) + '</span>' + esc((next.title)) + '</div>';
     } else if (ongoing.length) {
       hero = '<div class="hero-label">진행 중 · ' + hm(ongoing[0].end) + ' 종료</div>' +
-        '<div class="hero-main">' + esc(cleanTitle(ongoing[0].title)) + '</div>';
+        '<div class="hero-main">' + esc((ongoing[0].title)) + '</div>';
     } else {
       // 오늘 일정만 다룬다. 내일 이후 일정은 끌어오지 않는다
       hero = '<div class="hero-label">다음 일정</div><div class="hero-main none">오늘 남은 일정 없음</div>';
@@ -163,7 +161,7 @@
     var html = remain.map(function (ev) {
       var isNow = !ev.all_day && ev.start <= nowStr;
       return '<li><span class="t">' + (ev.all_day ? '종일' : hm(ev.start)) + '</span><span class="x">' +
-        esc(cleanTitle(ev.title)) + '</span>' + (isNow ? '<span class="r">진행 중</span>' : '') + '</li>';
+        esc((ev.title)) + '</span>' + (isNow ? '<span class="r">진행 중</span>' : '') + '</li>';
     }).join('');
     setHtml('today-done', done > 0 ? '지난 일정 ' + done + '건' : '');
     setHtml('today', html || '<li class="empty">' + (next ? '이후 일정 없음' : '없음') + '</li>');
@@ -180,7 +178,7 @@
         lines++;
         // 날짜는 그날 첫 일정에만 적는다
         weekHtml += '<li><span class="d">' + (i === 0 ? mmddDow(d) : '') + '</span><span class="t">' +
-          (ev.all_day ? '종일' : hm(ev.start)) + '</span><span class="x">' + esc(cleanTitle(ev.title)) + '</span></li>';
+          (ev.all_day ? '종일' : hm(ev.start)) + '</span><span class="x">' + esc((ev.title)) + '</span></li>';
       });
     }
     weekHtml = weekHtml ? '<ul class="list">' + weekHtml + '</ul>' : '';
@@ -377,7 +375,6 @@
       generated_at: ymdhm(now) + ':00+09:00',
       range_end: addDays(today, 15),
       events: demo.events.map(conv),
-      deadlines: demo.deadlines.map(conv),
       quotes_updated_at: 'demo',
       quotes: demo.quotes
     };
