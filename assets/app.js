@@ -12,6 +12,9 @@
  * 처음 한 번 아래 주소로 열면 연결 정보가 기기에 저장된다 (# 뒤는 서버로 전송되지 않음):
  *   index.html#gas=<Apps Script 웹앱 URL>&token=<TOKEN>
  * 옵션: ?demo=1 (예시 데이터로 보기)   ?clock=0 (시계 숨김)   #reset=1 (연결 정보 지우기)
+ *
+ * 전체화면: 브라우저는 사용자 조작 없이 전체화면을 허락하지 않으므로, 화면을 탭할 때 요청한다.
+ * '홈 화면에 추가'로 열면 manifest 의 display: fullscreen 으로 처음부터 주소창 없이 열린다.
  */
 (function () {
   'use strict';
@@ -367,5 +370,23 @@
   syncNow();
   setInterval(syncNow, SYNC_MIN * 60000);
   window.addEventListener('online', function () { setTimeout(syncNow, 3000); });
-  document.addEventListener('click', syncNow);
+  document.addEventListener('click', function () { enterFullscreen(); syncNow(); });
+  // 전체화면 전환 등으로 화면 높이가 바뀌면 글자 맞춤을 다시 한다
+  window.addEventListener('resize', function () { scheduleFit('cal'); scheduleFit('quote'); });
+
+  function enterFullscreen() {
+    var el = document.documentElement;
+    if (document.fullscreenElement || document.webkitFullscreenElement) return;
+    var req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) return;
+    try {
+      var p = req.call(el);
+      if (p && p['catch']) p['catch'](function () { /* 거부돼도 그냥 둔다 */ });
+    } catch (e) { /* 지원 안 하는 브라우저 */ }
+  }
+
+  // 페이지 파일을 기기에 저장해 두는 서비스 워커 (오프라인에서 브라우저가 다시 열려도 화면이 뜨게)
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js')['catch'](function () { /* 실패해도 페이지는 동작 */ });
+  }
 })();
