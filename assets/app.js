@@ -76,10 +76,12 @@
   function hm(s) { return s.slice(11, 16); }
 
   function setHtml(id, html) {
-    if (lastRendered[id] === html) return;
+    var el = $(id);
+    // HTML 과 스크립트 버전이 어긋나 칸이 없어도 멈추지 않고 나머지를 그린다
+    if (!el || lastRendered[id] === html) return;
     lastRendered[id] = html;
-    $(id).innerHTML = html;
-    var pane = $(id).closest ? $(id).closest('.pane') : null;
+    el.innerHTML = html;
+    var pane = el.closest ? el.closest('.pane') : null;
     if (pane) scheduleFit(pane.id);
   }
 
