@@ -188,7 +188,7 @@
   }
 
   // ---------- 인용구 ----------
-  // 07~17시 매시 정각에 하나씩. 순서는 섞되 한 바퀴 돌기 전엔 반복하지 않는다.
+  // 07~17시 매시 정각에 하나씩 (슬롯 번호). 무작위 모드에선 섞되 한 바퀴 돌기 전엔 반복하지 않는다.
   function quoteSlot(now) {
     var h = now.getHours();
     var day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -215,28 +215,71 @@
     return order;
   }
 
-  // ↻ 버튼으로 고른 인용구. 다음 정각(슬롯이 바뀌면)에는 원래 순서로 돌아간다
-  var picked = { slot: null, index: null };
+  // ---------- 인용구 보기 방식 ----------
+  // 'book'   : 책 순서. 노트 파일명(날짜)순으로 한 책의 인용구를 적힌 순서대로, 다 보면 다음 책.
+  //            ↻ 는 다음 문장으로 넘기고, 그 자리에서 이어 간다(기기에 기억).
+  // 'random' : 무작위. 섞인 순서로 매시 바뀌고, ↻ 는 아무 문장이나. 다음 정각엔 원래 순서로.
+  var KEY_QUOTE_MODE = 'eink.quoteMode';
+  var KEY_QUOTE_CURSOR = 'eink.quoteCursor';
+  var quoteMode = load(KEY_QUOTE_MODE) === 'random' ? 'random' : 'book';
+  var picked = { slot: null, index: null };   // 무작위 모드에서 ↻ 로 고른 것
 
-  function pickAnotherQuote() {
-    var quotes = data && data.quotes || [];
-    if (quotes.length < 2) return;
-    var now = new Date();
-    var current = currentQuoteIndex(quotes, now);
-    var next;
-    do { next = Math.floor(Math.random() * quotes.length); } while (next === current);
-    picked = { slot: quoteSlot(now), index: next };
-    renderQuote(now);
+  function bookCursor(slot) {
+    var c = load(KEY_QUOTE_CURSOR);
+    if (!c || typeof c.pos !== 'number' || typeof c.slot !== 'number') {
+      c = { pos: 0, slot: slot };   // 처음엔 첫 책 첫 문장부터
+      store(KEY_QUOTE_CURSOR, c);
+    }
+    return c;
   }
 
   function currentQuoteIndex(quotes, now) {
     var slot = quoteSlot(now);
+    if (quoteMode === 'book') {
+      var c = bookCursor(slot);
+      var pos = c.pos + Math.max(0, slot - c.slot);   // 매시 정각마다 한 문장씩 앞으로
+      return pos % quotes.length;
+    }
     if (picked.slot === slot && picked.index < quotes.length) return picked.index;
     var order = quoteOrder(quotes);
     return order[slot % order.length];
   }
 
+  function pickAnotherQuote() {
+    var quotes = data && data.quotes || [];
+    if (quotes.length < 2) return;
+    var now = new Date();
+    var slot = quoteSlot(now);
+    if (quoteMode === 'book') {
+      // 지금 보이는 문장 다음으로 커서를 옮긴다
+      store(KEY_QUOTE_CURSOR, { pos: currentQuoteIndex(quotes, now) + 1, slot: slot });
+    } else {
+      var current = currentQuoteIndex(quotes, now);
+      var next;
+      do { next = Math.floor(Math.random() * quotes.length); } while (next === current);
+      picked = { slot: slot, index: next };
+    }
+    renderQuote(now);
+  }
+
+  function toggleQuoteMode() {
+    var quotes = data && data.quotes || [];
+    var now = new Date();
+    if (quoteMode === 'random') {
+      // 책 순서로 바꾸면 지금 보이는 문장의 책에서부터 이어 간다
+      var cur = quotes.length ? currentQuoteIndex(quotes, now) : 0;
+      quoteMode = 'book';
+      store(KEY_QUOTE_CURSOR, { pos: cur, slot: quoteSlot(now) });
+    } else {
+      quoteMode = 'random';
+      picked = { slot: null, index: null };
+    }
+    store(KEY_QUOTE_MODE, quoteMode);
+    renderQuote(now);
+  }
+
   function renderQuote(now) {
+    setHtml('quote-mode', quoteMode === 'book' ? '책 순서' : '무작위');
     var quotes = data && data.quotes || [];
     if (!quotes.length) {
       setHtml('quote-fit', '<p class="empty">' + (data ? '받아 둔 인용구가 없습니다 (옵시디언 플러그인에서 보내기 필요)' : '') + '</p>');
@@ -370,6 +413,9 @@
   // 책갈피 ↻: 다른 인용구 보기 (동기화는 하지 않는다)
   var nextBtn = $('quote-next');
   if (nextBtn) nextBtn.addEventListener('click', function (e) { e.stopPropagation(); pickAnotherQuote(); });
+  // 책갈피 보기 방식 전환: 책 순서 ↔ 무작위
+  var modeBtn = $('quote-mode');
+  if (modeBtn) modeBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleQuoteMode(); });
   // 앱의 '연결 설정'은 같은 페이지에 #gas=... 만 바꿔 넘긴다 → 새로고침 없이 받아 저장
   window.addEventListener('hashchange', function () {
     captureConfigFromHash();

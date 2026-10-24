@@ -53,6 +53,9 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .h2btn { font: inherit; font-size: 0.99em; line-height: 1; background: #fff; color: #000;
          border: 2px solid #000; border-radius: 0.3em; padding: 0.15em 0.45em; margin-bottom: 0.15em;
          display: flex; align-items: center; }
+.h2btns { display: flex; align-items: center; }
+.h2btns > * + * { margin-left: 0.4em; }
+.h2mode { font-size: 0.7em; font-weight: 400; padding: 0.3em 0.55em; }
 .q-text { font-size: 0.9em; line-height: 1.5; word-break: keep-all; padding-left: 1em; }   /* 인용구 전체를 한 칸 들여쓰기 */
 /* 노트에서 굵게·형광펜 친 부분은 굵게 대신 밑줄 (글씨 굵기는 모두 보통) */
 .q-text { font-weight: 400; }
