@@ -5,9 +5,9 @@
  *
  * - 데이터는 Apps Script 웹앱에서 한 번에 받는다 (일정 2주치 + 인용구 전체).
  *   네트워크는 핫스팟을 켤 때만 있다고 가정하고, 받은 데이터는 localStorage 에 둔다.
- *   '오늘', '다음 일정까지 남은 시간', '지금 인용구'는 전부 기기 시계로 계산한다.
+ *   '오늘', '다음 일정', '지금 인용구'는 전부 기기 시계로 계산한다.
  * - 동기화 시점: 페이지 열 때, 네트워크가 연결되는 순간(online), 화면을 탭할 때, 30분마다.
- * - 잔상 줄이기: 내용이 바뀐 영역만 다시 그린다. 남은 시간은 10분 단위로만 바뀐다.
+ * - 잔상 줄이기: 내용이 바뀐 영역만 다시 그린다. 화면 재계산은 10분 간격.
  *
  * 처음 한 번 아래 주소로 열면 연결 정보가 기기에 저장된다 (# 뒤는 서버로 전송되지 않음):
  *   index.html#gas=<Apps Script 웹앱 URL>&token=<TOKEN>
@@ -116,14 +116,6 @@
     return list;
   }
 
-  function untilText(fromStr, toStr) {
-    var min = Math.round((toDate(toStr) - toDate(fromStr)) / 60000);
-    if (min < 10) return '곧 시작';
-    min = Math.floor(min / 10) * 10;   // 10분 단위로만 바꿔 잔상을 줄인다
-    var h = Math.floor(min / 60), m = min % 60;
-    return (h ? h + '시간' + (m ? ' ' : '') : '') + (m ? m + '분' : '') + ' 후';
-  }
-
   function cleanTitle(t) { return t.replace(new RegExp(DEADLINE_TAG.source, 'g'), ' ').trim(); }
 
   // ---------- 렌더 ----------
@@ -150,7 +142,7 @@
     // ── 다음 일정 강조 상자
     var hero;
     if (next) {
-      hero = '<div class="hero-label">다음 일정 · ' + untilText(nowStr, next.start) + '</div>' +
+      hero = '<div class="hero-label">다음 일정</div>' +
         '<div class="hero-main"><span class="t">' + hm(next.start) + '</span>' + esc(cleanTitle(next.title)) + '</div>';
     } else if (ongoing.length) {
       hero = '<div class="hero-label">진행 중 · ' + hm(ongoing[0].end) + ' 종료</div>' +
@@ -335,7 +327,7 @@
     if (clear && history.replaceState) history.replaceState(null, '', location.pathname + location.search);
   }
 
-  // 화면은 10분마다만 다시 계산한다 (시계가 없고, 남은 시간도 10분 단위라 그보다 자주 볼 필요가 없다).
+  // 화면은 10분마다만 다시 계산한다: 끝난 일정 걸러내기, 다음 일정 넘기기, 진행 중 표시, 정각 인용구 교체.
   // 내용이 바뀐 영역만 다시 그리므로 실제로 전자잉크가 갱신되는 일은 더 드물다.
   var RENDER_EVERY_MS = 10 * 60000;
   function everyTenMinutes() {
