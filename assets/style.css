@@ -57,7 +57,7 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
                border: 0; padding: 0.25em 0.2em; display: flex; align-items: center; }   /* 버튼 윤곽선 없음 */
 .foot #quote-next svg { width: 1.3em; height: 1.3em; }
 
-.q-text { font-size: 0.9em; line-height: 1.5; word-break: break-all; }   /* 단어 중간 줄바꿈 허용: 줄 끝을 고르게 채움 */
+.q-text { font-size: 0.9em; line-height: 1.5; word-break: normal; overflow-wrap: break-word; }   /* 한글은 글자 단위로 줄바꿈(줄 끝을 고르게), 숫자·영어 단어는 붙여 둠 */
 /* 책갈피 카드: 옅은 회색 메모지 + 오른쪽 위 접힌 모서리 (그림자 없음). 칸 아래를 꽉 채운다 */
 .quote { display: flex; flex-direction: column; }
 #quote-fit { display: flex; flex-direction: column;   /* 출처를 늘 메모지 오른쪽 아래에 */
