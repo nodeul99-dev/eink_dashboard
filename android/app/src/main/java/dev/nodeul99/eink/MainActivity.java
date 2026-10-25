@@ -58,8 +58,12 @@ import java.util.regex.Pattern;
  * - 화면 어디든 길게 누르면 관리 메뉴 (와이파이, 연결 설정, 잔상 지우기 등)
  * - USB 로 Download 폴더에 넣은 dashboard.txt 에서 연결 정보(웹앱 주소·토큰)를 읽는다
  * - 전자책처럼 잠든다: 만진 뒤 1분이면 화면이 꺼지고(BOOX 투명 화면보호기라 대시보드가 그대로 남는다),
- *   페이지가 알려 준 '다음에 화면이 바뀔 시각'(책갈피 교체·일정 시작/끝·자정)에 알람으로 잠깐 깨워 다시 그린다.
- *   알람으로 깼을 때만 화면 꺼짐 시간을 10초로 줄이고, 사람이 만지면 1분으로 되돌린다
+ *   페이지가 알려 준 '다음에 화면이 바뀔 시각'(책갈피 교체·자정)에 잠깐 깨워 다시 그린다.
+ *   Poke3 는 깊이 잠든 동안 앱 알람을 받지 않는다(2026-10-25 확인). 그래서 다음 깨울 시각이 가까우면(3시간 안,
+ *   = 낮 07~18시) 화면만 끄고 프로세서는 붙잡아 둔 채(PARTIAL_WAKE_LOCK) 앱 타이머로 화면을 켠다.
+ *   밤처럼 멀면 놓아 줘서 완전히 잠든다 (아침에 사람이 깨우면 그날 낮 동작이 다시 시작된다).
+ *   알람도 함께 걸어 둔다 (울리면 좋고, 안 울려도 타이머가 있다).
+ *   깨웠을 때만 화면 꺼짐 시간을 10초로 줄이고, 사람이 만지면 1분으로 되돌린다
  * - 깨어날 때 웹뷰가 액정보다 크게 잡히는 BOOX 문제: 크기를 재서 어긋나면 웹뷰를 새로 만들고,
  *   그래도 안 되면 앱 프로세스를 다시 시작한다 (메뉴 '화면 정보'에 측정값과 복구 기록)
  * - 매일 새벽 페이지를 다시 불러 레포에 푸시한 화면 변경을 반영
@@ -93,6 +97,9 @@ public class MainActivity extends Activity {
     private View flashOverlay;
     private SharedPreferences prefs;
     private PowerManager.WakeLock recoverLock;
+    private PowerManager.WakeLock dayLock;   // 낮 동안 화면이 꺼져도 프로세서를 붙잡아 앱 타이머가 돌게
+    // 다음 깨울 시각이 이만큼 안이면 프로세서를 붙잡고 기다린다 (책갈피 간격은 최대 1시간, 밤엔 7시간 넘게 남는다)
+    private static final long DAY_HOLD_MAX_MS = 3 * 60 * 60 * 1000L;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private int lastReloadDay = -1;
     private int recoverStage = 0;      // 0: 정상, 1: 웹뷰를 새로 만듦 → 다시 쟀는데도 어긋나면 프로세스 재시작
@@ -526,6 +533,36 @@ public class MainActivity extends Activity {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, wake);
         }
         prefs.edit().putLong("next_wake_at", at).putInt("wake_slot", slot).apply();
+        armDayTimer(at);
+    }
+
+    private final Runnable dayWake = () -> WakeReceiver.wakeScreen(this, "타이머");
+    private final Runnable testWake = () -> WakeReceiver.wakeScreen(this, "타이머 시험");
+
+    /** 다음 깨울 시각이 가까우면 프로세서를 붙잡고 앱 타이머를 건다. 멀면(밤) 놓아 줘서 완전히 잠들게 */
+    private void armDayTimer(long at) {
+        handler.removeCallbacks(dayWake);
+        long delay = at - System.currentTimeMillis();
+        if (delay > 0 && delay <= DAY_HOLD_MAX_MS) {
+            holdCpu(delay + 60 * 1000L);
+            handler.postDelayed(dayWake, delay);
+        } else {
+            releaseCpu();
+        }
+    }
+
+    private void holdCpu(long ms) {
+        if (dayLock == null) {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm == null) return;
+            dayLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "eink:day");
+            dayLock.setReferenceCounted(false);
+        }
+        dayLock.acquire(ms);   // 시간 제한을 둬서, 혹시 타이머가 안 돌아도 계속 붙잡지 않게
+    }
+
+    private void releaseCpu() {
+        if (dayLock != null && dayLock.isHeld()) dayLock.release();
     }
 
     /** 메뉴 '알람 시험': 70초 뒤 한 번 깨운다 (평소 알람과 다른 칸이라 서로 덮어쓰지 않는다) */
@@ -538,6 +575,10 @@ public class MainActivity extends Activity {
         PendingIntent show = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         am.setAlarmClock(new AlarmManager.AlarmClockInfo(at, show), wake);
+        // 낮 방식(프로세서를 붙잡고 앱 타이머)도 같은 시각에 — 기록에 둘 중 무엇이 울렸는지 남는다
+        holdCpu(70 * 1000L + 60 * 1000L);
+        handler.removeCallbacks(testWake);
+        handler.postDelayed(testWake, 70 * 1000L);
         log(this, "알람 시험 예약 → " + new SimpleDateFormat("HH:mm:ss", Locale.KOREA).format(new Date(at)));
         // 바로 재워야 시험이 된다: 화면 꺼짐을 10초로 (만지면 1분으로 돌아감)
         prefs.edit().putLong("test_wake_at", at).putLong(WakeReceiver.PREF_ALARM_WAKE_AT, System.currentTimeMillis()).apply();
@@ -731,6 +772,7 @@ public class MainActivity extends Activity {
         handler.removeCallbacksAndMessages(null);
         webView.destroy();
         if (recoverLock != null && recoverLock.isHeld()) recoverLock.release();
+        releaseCpu();
         super.onDestroy();
     }
 
