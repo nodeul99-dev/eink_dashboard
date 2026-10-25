@@ -127,6 +127,8 @@ public class MainActivity extends Activity {
         hideSystemBars();
 
         webView.loadUrl(DASHBOARD_URL);
+        // 화면 크기 복구로 방금 다시 시작했으면, 페이지가 다 그려지기 전에 잠들지 않게 잠깐 붙잡는다
+        if (System.currentTimeMillis() - prefs.getLong("restart_at", 0) < 30 * 1000L) holdScreenForRecovery();
         lastReloadDay = Calendar.getInstance().get(Calendar.DAY_OF_YEAR);
         handler.postDelayed(dailyReload, CHECK_INTERVAL_MS);
     }
