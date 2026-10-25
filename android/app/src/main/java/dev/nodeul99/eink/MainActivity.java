@@ -1,7 +1,9 @@
 package dev.nodeul99.eink;
 
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.AlertDialog;
+import android.app.PendingIntent;
 import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -9,6 +11,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Point;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -16,11 +19,11 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.Process;
 import android.provider.Settings;
 import android.text.InputType;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -39,7 +42,10 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,8 +57,11 @@ import java.util.regex.Pattern;
  * - 홈 앱(런처)으로 등록 → 전원을 켜거나 홈 버튼을 눌러도 대시보드
  * - 화면 어디든 길게 누르면 관리 메뉴 (와이파이, 연결 설정, 잔상 지우기 등)
  * - USB 로 Download 폴더에 넣은 dashboard.txt 에서 연결 정보(웹앱 주소·토큰)를 읽는다
- * - 화면이 잠들지 않게: 화면 켜짐 유지 플래그 + wake lock + (권한을 받으면) 시스템 화면 꺼짐 시간을 최대로
- *   BOOX 설정 메뉴는 최장 30분까지만 고를 수 있어 앱에서 직접 바꾼다
+ * - 전자책처럼 잠든다: 만진 뒤 1분이면 화면이 꺼지고(BOOX 투명 화면보호기라 대시보드가 그대로 남는다),
+ *   페이지가 알려 준 '다음에 화면이 바뀔 시각'(책갈피 교체·일정 시작/끝·자정)에 알람으로 잠깐 깨워 다시 그린다.
+ *   알람으로 깼을 때만 화면 꺼짐 시간을 10초로 줄이고, 사람이 만지면 1분으로 되돌린다
+ * - 깨어날 때 웹뷰가 액정보다 크게 잡히는 BOOX 문제: 크기를 재서 어긋나면 웹뷰를 새로 만들고,
+ *   그래도 안 되면 앱 프로세스를 다시 시작한다 (메뉴 '화면 정보'에 측정값과 복구 기록)
  * - 매일 새벽 페이지를 다시 불러 레포에 푸시한 화면 변경을 반영
  */
 public class MainActivity extends Activity {
@@ -68,32 +77,43 @@ public class MainActivity extends Activity {
     private static final Pattern TOKEN_PARAM = Pattern.compile("[?&]token=(?:\\s|%20)*([A-Za-z0-9_\\-]+)");
     private static final Pattern TOKEN_LINE = Pattern.compile("^\\s*([A-Za-z0-9_\\-]{20,})\\s*$", Pattern.MULTILINE);
 
+    // 화면 꺼짐 시간: 평소(사람이 만진 뒤) 1분, 알람으로 깨워 다시 그릴 때는 10초 (안드로이드 최소값)
+    static final int SCREEN_TIMEOUT_NORMAL = 60 * 1000;
+    static final int SCREEN_TIMEOUT_ALARM = 10 * 1000;
+    // 알람으로 깬 뒤 이 시간 안에 화면이 켜지면 '알람으로 깼다'고 본다
+    private static final long ALARM_WAKE_WINDOW_MS = 30 * 1000L;
+    // 화면 크기 확인: 깨어난 뒤 잠시 기다렸다 잰다. 어긋남 허용치 3%
+    private static final long VIEWPORT_CHECK_DELAY_MS = 2500;
+    private static final double VIEWPORT_TOLERANCE = 0.03;
+    // 프로세스 재시작은 3분에 한 번까지 (그래도 안 되면 포기하고 재부팅 안내 — 무한 재시작 방지)
+    private static final long RESTART_GUARD_MS = 3 * 60 * 1000L;
+
+    private FrameLayout root;
     private WebView webView;
     private View flashOverlay;
     private SharedPreferences prefs;
-    private PowerManager.WakeLock wakeLock;
-    // 안드로이드 화면 꺼짐 시간의 최댓값(ms, 약 24일). 사실상 '꺼지지 않음'
-    private static final int SCREEN_TIMEOUT_MAX = Integer.MAX_VALUE;
+    private PowerManager.WakeLock recoverLock;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private int lastReloadDay = -1;
+    private int recoverStage = 0;      // 0: 정상, 1: 웹뷰를 새로 만듦 → 다시 쟀는데도 어긋나면 프로세스 재시작
+    private String lastViewport = "";  // 메뉴 '화면 정보'에 보여 줄 마지막 측정값
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("eink", MODE_PRIVATE);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         // 혹시 잠금 화면이 뜨더라도 그 위에 대시보드를 띄운다
         if (Build.VERSION.SDK_INT >= 27) {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
         }
 
-        FrameLayout root = new FrameLayout(this);
+        root = new FrameLayout(this);
         root.setBackgroundColor(Color.WHITE);
 
         webView = new WebView(this);
         setupWebView(webView);
-        root.addView(webView, new FrameLayout.LayoutParams(
+        root.addView(webView, 0, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         // 잔상 지우기용 검은 덮개 (평소엔 숨김)
@@ -175,7 +195,8 @@ public class MainActivity extends Activity {
                 "연결 파일 불러오기 (Download/dashboard.txt)",
                 "연결 설정 (직접 입력)",
                 "기본 홈 화면 바꾸기",
-                "화면 자동 잠금 끄기",
+                "절전 설정 (1분 뒤 잠들기)",
+                "화면 정보 (크기 문제 진단)",
                 "기기 설정",
         };
         new AlertDialog.Builder(this)
@@ -189,8 +210,9 @@ public class MainActivity extends Activity {
                         case 4: importConnectionFile(); break;
                         case 5: showConnectionDialog(); break;
                         case 6: openSettings(Settings.ACTION_HOME_SETTINGS); break;
-                        case 7: disableAutoLock(); break;
-                        case 8: openSettings(Settings.ACTION_SETTINGS); break;
+                        case 7: setupSleep(); break;
+                        case 8: showViewportInfo(); break;
+                        case 9: openSettings(Settings.ACTION_SETTINGS); break;
                         default: break;
                     }
                 })
@@ -357,15 +379,22 @@ public class MainActivity extends Activity {
 
     // ---------- 매일 새벽 다시 불러오기 ----------
 
+    // 잠든 동안엔 핸들러 시계가 멈추므로 깨어날 때(onResume)도 확인한다
+    private boolean reloadIfNewDay() {
+        Calendar now = Calendar.getInstance();
+        int day = now.get(Calendar.DAY_OF_YEAR);
+        if (day != lastReloadDay && now.get(Calendar.HOUR_OF_DAY) >= DAILY_RELOAD_HOUR) {
+            lastReloadDay = day;
+            webView.reload();
+            return true;
+        }
+        return false;
+    }
+
     private final Runnable dailyReload = new Runnable() {
         @Override
         public void run() {
-            Calendar now = Calendar.getInstance();
-            int day = now.get(Calendar.DAY_OF_YEAR);
-            if (day != lastReloadDay && now.get(Calendar.HOUR_OF_DAY) >= DAILY_RELOAD_HOUR) {
-                lastReloadDay = day;
-                webView.reload();
-            }
+            reloadIfNewDay();
             handler.postDelayed(this, CHECK_INTERVAL_MS);
         }
     };
@@ -394,50 +423,73 @@ public class MainActivity extends Activity {
         super.onResume();
         hideSystemBars();
         webView.onResume();
-        acquireWakeLock();
-        // 권한을 받아 둔 상태면, BOOX 설정에서 값이 다시 바뀌었어도 조용히 최대로 되돌린다
-        if (canWriteSettings()) applyMaxScreenTimeout();
+        // 알람으로 깼으면 10초 뒤 다시 잠들고, 사람이 깨웠으면(전원 버튼) 1분
+        long alarmAt = prefs.getLong(WakeReceiver.PREF_ALARM_WAKE_AT, 0);
+        boolean byAlarm = System.currentTimeMillis() - alarmAt < ALARM_WAKE_WINDOW_MS;
+        if (!byAlarm) setScreenTimeout(this, SCREEN_TIMEOUT_NORMAL);
+        // 다시 그리기 (바뀐 칸만 그리므로 바뀐 게 없으면 화면은 그대로)
+        if (!reloadIfNewDay()) webView.evaluateJavascript("window.einkRender && window.einkRender()", null);
+        scheduleViewportCheck();
+    }
+
+    @Override
+    public void onUserInteraction() {
+        super.onUserInteraction();
+        // 사람이 만지면 알람용 10초 대신 평소 1분으로
+        if (prefs.getLong(WakeReceiver.PREF_ALARM_WAKE_AT, 0) != 0) {
+            prefs.edit().putLong(WakeReceiver.PREF_ALARM_WAKE_AT, 0).apply();
+            setScreenTimeout(this, SCREEN_TIMEOUT_NORMAL);
+        }
     }
 
     @Override
     protected void onPause() {
         webView.onPause();
-        releaseWakeLock();
         super.onPause();
     }
 
-    // ---------- 화면이 잠들지 않게 ----------
+    // ---------- 잠들기 / 알람으로 깨우기 ----------
 
-    @SuppressWarnings("deprecation")
-    private void acquireWakeLock() {
-        if (wakeLock == null) {
-            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            if (pm == null) return;
-            wakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ON_AFTER_RELEASE, "eink:dashboard");
-            wakeLock.setReferenceCounted(false);
-        }
-        if (!wakeLock.isHeld()) wakeLock.acquire();
+    static boolean canWriteSettings(Context c) {
+        return Build.VERSION.SDK_INT < 23 || Settings.System.canWrite(c);
     }
 
-    private void releaseWakeLock() {
-        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
-    }
-
-    private boolean canWriteSettings() {
-        return Build.VERSION.SDK_INT < 23 || Settings.System.canWrite(this);
-    }
-
-    private boolean applyMaxScreenTimeout() {
+    /** 시스템 화면 꺼짐 시간 변경 ('시스템 설정 수정' 허용이 있어야 한다) */
+    static boolean setScreenTimeout(Context c, int ms) {
+        if (!canWriteSettings(c)) return false;
         try {
-            return Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, SCREEN_TIMEOUT_MAX);
+            int cur = Settings.System.getInt(c.getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, -1);
+            if (cur == ms) return true;
+            return Settings.System.putInt(c.getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, ms);
         } catch (SecurityException e) {
             return false;
         }
     }
 
-    /** 메뉴 '화면 자동 잠금 끄기': 시스템 설정 수정 권한을 받아 화면 꺼짐 시간을 최대로 */
-    private void disableAutoLock() {
-        if (!canWriteSettings()) {
+    /** 페이지가 알려 준 시각에 깨우는 알람. setAlarmClock 은 절전(Doze) 중에도 정확히 울린다 */
+    void scheduleWake(long at) {
+        AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return;
+        PendingIntent wake = PendingIntent.getBroadcast(this, 0, new Intent(this, WakeReceiver.class),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        if (at <= System.currentTimeMillis()) {
+            am.cancel(wake);
+            return;
+        }
+        PendingIntent show = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        try {
+            am.setAlarmClock(new AlarmManager.AlarmClockInfo(at, show), wake);
+        } catch (SecurityException e) {
+            // 안드로이드 12+ 에서 정확한 알람 권한이 없을 때 (Poke3 는 10 이라 해당 없음)
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, wake);
+        }
+        prefs.edit().putLong("next_wake_at", at).apply();
+    }
+
+    /** 메뉴 '절전 설정': 시스템 설정 수정 권한을 받아 화면 꺼짐 시간을 1분으로 */
+    private void setupSleep() {
+        if (!canWriteSettings(this)) {
             Toast.makeText(this, "'시스템 설정 수정' 허용을 켠 뒤 돌아와 이 메뉴를 한 번 더 눌러 주세요", Toast.LENGTH_LONG).show();
             try {
                 startActivity(new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:" + getPackageName())));
@@ -446,17 +498,150 @@ public class MainActivity extends Activity {
             }
             return;
         }
-        boolean ok = applyMaxScreenTimeout();
-        int now;
+        boolean ok = setScreenTimeout(this, SCREEN_TIMEOUT_NORMAL);
+        int now = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, -1);
+        Toast.makeText(this, ok ? "만지지 않으면 " + (now / 1000) + "초 뒤 잠듭니다 (화면은 그대로 남음)"
+                : "설정을 바꾸지 못했습니다", Toast.LENGTH_LONG).show();
+    }
+
+    // ---------- 화면 크기 확인 (깨어날 때 웹뷰가 액정보다 크게 잡히는 문제) ----------
+
+    private final Runnable viewportCheck = this::checkViewport;
+
+    private void scheduleViewportCheck() {
+        handler.removeCallbacks(viewportCheck);
+        handler.postDelayed(viewportCheck, VIEWPORT_CHECK_DELAY_MS);
+    }
+
+    private static final String VIEWPORT_JS = "(function(){var v=window.visualViewport;return [window.innerWidth,"
+            + "window.innerHeight,window.devicePixelRatio,v?v.scale:1,document.documentElement.scrollWidth].join(',');})()";
+
+    private void checkViewport() {
+        final int w = webView.getWidth(), h = webView.getHeight();
+        if (w == 0 || h == 0) return;
+        webView.evaluateJavascript(VIEWPORT_JS, value -> {
+            String bad = viewportProblem(value, w, h);
+            if (bad == null) {
+                if (recoverStage > 0) logRecovery("복구됨 (" + (recoverStage == 1 ? "웹뷰 새로 만들기" : "재시작") + ")");
+                recoverStage = 0;
+                return;
+            }
+            recover(bad);
+        });
+    }
+
+    /** 어긋났으면 무엇이 어긋났는지, 정상이면 null */
+    private String viewportProblem(String jsValue, int w, int h) {
+        Point real = new Point();
+        getWindowManager().getDefaultDisplay().getRealSize(real);
+        float density = getResources().getDisplayMetrics().density;
+        String v = jsValue == null ? "" : jsValue.replace("\"", "");
+        lastViewport = "액정 " + real.x + "×" + real.y + ", 밀도 " + density
+                + "\n웹뷰 " + w + "×" + h
+                + "\n페이지(폭,높이,배율,확대,내용폭) " + v;
+        String[] p = v.split(",");
+        if (p.length < 5) return null;   // 페이지가 아직 안 열렸으면 판단하지 않는다
         try {
-            now = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT);
-        } catch (Settings.SettingNotFoundException e) {
-            now = -1;
+            double iw = Double.parseDouble(p[0]), ih = Double.parseDouble(p[1]), dpr = Double.parseDouble(p[2]);
+            double scale = Double.parseDouble(p[3]), sw = Double.parseDouble(p[4]);
+            if (off(w, real.x) && w > real.x) return "웹뷰가 액정보다 넓음";
+            if (off(h, real.y) && h > real.y) return "웹뷰가 액정보다 높음";
+            if (off(dpr, density)) return "배율 어긋남 " + dpr + "≠" + density;
+            if (off(iw * dpr, w) || off(ih * dpr, h)) return "페이지 크기 어긋남";
+            if (off(scale, 1)) return "확대됨 " + scale;
+            if (sw > iw * (1 + VIEWPORT_TOLERANCE)) return "내용이 화면보다 넓음";
+        } catch (NumberFormatException e) {
+            return null;
         }
-        String msg = ok && now >= SCREEN_TIMEOUT_MAX / 2
-                ? "화면 자동 잠금을 껐습니다 (화면 꺼짐 시간: 약 " + (now / 86400000) + "일)"
-                : "설정을 바꾸지 못했습니다 (현재 " + (now / 60000) + "분)";
-        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+        return null;
+    }
+
+    private static boolean off(double a, double b) {
+        return Math.abs(a - b) > Math.abs(b) * VIEWPORT_TOLERANCE;
+    }
+
+    /** 1단계: 웹뷰를 새로 만든다. 2단계: 앱 프로세스를 다시 시작한다 (홈 앱이라 시스템이 곧바로 다시 띄운다) */
+    private void recover(String why) {
+        holdScreenForRecovery();
+        if (recoverStage == 0) {
+            recoverStage = 1;
+            logRecovery("어긋남: " + why + " → 웹뷰 새로 만들기");
+            recreateWebView();
+            return;
+        }
+        long last = prefs.getLong("restart_at", 0);
+        if (System.currentTimeMillis() - last < RESTART_GUARD_MS) {
+            logRecovery("어긋남: " + why + " → 재시작해도 그대로 (재부팅 필요)");
+            Toast.makeText(this, "화면 크기를 바로잡지 못했습니다. 재부팅해 주세요", Toast.LENGTH_LONG).show();
+            recoverStage = 0;
+            return;
+        }
+        logRecovery("어긋남: " + why + " → 앱 다시 시작");
+        prefs.edit().putLong("restart_at", System.currentTimeMillis()).commit();
+        AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        if (am != null) {
+            PendingIntent pi = PendingIntent.getActivity(this, 1, new Intent(this, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            am.set(AlarmManager.RTC, System.currentTimeMillis() + 500, pi);
+        }
+        finishAffinity();
+        Process.killProcess(Process.myPid());
+    }
+
+    private void recreateWebView() {
+        WebView old = webView;
+        webView = new WebView(this);
+        setupWebView(webView);
+        root.addView(webView, 0, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        root.removeView(old);
+        old.destroy();
+        webView.loadUrl(DASHBOARD_URL);
+        handler.removeCallbacks(viewportCheck);
+        handler.postDelayed(viewportCheck, VIEWPORT_CHECK_DELAY_MS * 2);   // 페이지가 열린 뒤 다시 잰다
+    }
+
+    /** 복구하는 동안 화면이 꺼지면 덜 그려진 화면이 남으므로 잠깐 붙잡는다 */
+    @SuppressWarnings("deprecation")
+    private void holdScreenForRecovery() {
+        if (recoverLock == null) {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm == null) return;
+            recoverLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ON_AFTER_RELEASE, "eink:recover");
+            recoverLock.setReferenceCounted(false);
+        }
+        recoverLock.acquire(15 * 1000L);
+    }
+
+    private void logRecovery(String msg) {
+        String line = new SimpleDateFormat("MM/dd HH:mm", Locale.KOREA).format(new Date()) + " " + msg;
+        String log = prefs.getString("viewport_log", "");
+        String[] lines = (line + "\n" + log).split("\n");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lines.length && i < 8; i++) sb.append(lines[i]).append('\n');
+        prefs.edit().putString("viewport_log", sb.toString()).apply();
+    }
+
+    /** 메뉴 '화면 정보': 지금 잰 값과 최근 복구 기록. 크기 문제가 다시 보이면 이 화면을 찍어 보내면 된다 */
+    private void showViewportInfo() {
+        final int w = webView.getWidth(), h = webView.getHeight();
+        webView.evaluateJavascript(VIEWPORT_JS, value -> {
+            String bad = viewportProblem(value, w, h);
+            long next = prefs.getLong("next_wake_at", 0);
+            String msg = "판정: " + (bad == null ? "정상" : bad)
+                    + "\n\n" + lastViewport
+                    + "\n\n다음 알람: " + (next > System.currentTimeMillis()
+                        ? new SimpleDateFormat("MM/dd HH:mm", Locale.KOREA).format(new Date(next)) : "없음")
+                    + "\n화면 꺼짐 시간: " + Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, -1) / 1000 + "초"
+                    + "\n앱 " + BuildConfig.VERSION_NAME
+                    + "\n\n최근 기록\n" + prefs.getString("viewport_log", "(없음)");
+            new AlertDialog.Builder(this)
+                    .setTitle("화면 정보")
+                    .setMessage(msg)
+                    .setPositiveButton("닫기", null)
+                    .setOnDismissListener(d -> hideSystemBars())
+                    .show();
+        });
     }
 
     @Override
@@ -469,14 +654,27 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
         webView.destroy();
+        if (recoverLock != null && recoverLock.isHeld()) recoverLock.release();
         super.onDestroy();
     }
 
     /** 페이지 JS 에서 window.EinkApp 으로 보인다 */
-    static class Bridge {
+    class Bridge {
         @JavascriptInterface
         public String version() {
             return BuildConfig.VERSION_NAME;
+        }
+
+        /** 페이지가 '다음에 화면이 바뀔 시각'(epoch ms, 문자열)을 알려 준다 → 그때 깨운다 */
+        @JavascriptInterface
+        public void scheduleWake(String atMs) {
+            final long at;
+            try {
+                at = Long.parseLong(atMs);
+            } catch (NumberFormatException e) {
+                return;
+            }
+            handler.post(() -> MainActivity.this.scheduleWake(at));
         }
     }
 }

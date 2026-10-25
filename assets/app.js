@@ -9,7 +9,8 @@
  * - 동기화 시점: 페이지 열 때, 네트워크가 연결되는 순간(online), 화면을 탭할 때, 메뉴 '지금 동기화'.
  *   (전력 절약: 주기적 동기화는 하지 않는다. 앱이 매일 새벽 페이지를 다시 불러올 때도 한 번 동기화된다)
  * - 책갈피는 동기화와 무관하다: 받아 둔 인용구 안에서 기기 시계로 매시 정각에 바뀌고, ↻·보기 방식 버튼으로 바로 바뀐다.
- * - 잔상 줄이기: 내용이 바뀐 영역만 다시 그린다. 화면 재계산은 10분 간격.
+ * - 잔상 줄이기: 내용이 바뀐 영역만 다시 그린다. 화면 재계산은 정각·30분(인용구 간격이 짧으면 그 간격).
+ * - 앱 안에서는 다음에 화면이 바뀔 시각을 EinkApp.scheduleWake 로 알려 준다 → 앱이 잠들었다 그때 깨운다.
  *
  * 처음 한 번 아래 주소로 열면 연결 정보가 기기에 저장된다 (# 뒤는 서버로 전송되지 않음):
  *   index.html#gas=<Apps Script 웹앱 URL>&token=<TOKEN>
@@ -291,6 +292,7 @@
     else picked = { slot: quoteSlot(now), index: cur };
     renderQuote(now);
     scheduleRender();   // 화면 다시 계산 주기도 간격에 맞춘다
+    requestWake(now);   // 앱이 깨우는 시각도
   }
 
   // ---------- 책갈피 설정 창 ----------
@@ -370,6 +372,35 @@
     renderCalendar(now);
     renderStatus(now);
     renderQuote(now);
+    requestWake(now);
+  }
+
+  // ---------- 앱 알람 (전자책처럼 잠들었다 깨기) ----------
+  // 다음에 화면이 바뀔 시각: 책갈피 교체, 오늘 일정의 시작('진행 중')·끝(지우기), 자정(날짜·일정 넘김)
+  function nextChangeTime(now) {
+    var t = [];
+    var day0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var m = now.getHours() * 60 + now.getMinutes();
+    var startMin = QUOTE_FIRST_HOUR * 60, endMin = (QUOTE_LAST_HOUR + 1) * 60;
+    var qm = m < startMin ? startMin : startMin + (Math.floor((m - startMin) / quoteInterval) + 1) * quoteInterval;
+    if (qm < endMin) t.push(day0.getTime() + qm * 60000);
+    t.push(day0.getTime() + 86400000);   // 자정
+    var nowStr = ymdhm(now);
+    eventsOn(ymd(now)).forEach(function (ev) {
+      if (ev.all_day) return;
+      if (ev.start > nowStr) t.push(toDate(ev.start.slice(0, 16)).getTime());
+      if (ev.end > nowStr) t.push(toDate(ev.end.slice(0, 16)).getTime());
+    });
+    return Math.min.apply(null, t);
+  }
+
+  var lastWakeAt = 0;
+  function requestWake(now) {
+    if (!IN_APP || !window.EinkApp.scheduleWake) return;
+    var at = nextChangeTime(now) + 5000;   // 경계를 막 넘긴 뒤에 그리도록 5초 여유
+    if (at === lastWakeAt) return;
+    lastWakeAt = at;
+    window.EinkApp.scheduleWake(String(at));
   }
 
   // ---------- 동기화 ----------
@@ -474,6 +505,8 @@
   });
   // 앱 메뉴의 '지금 동기화'
   window.einkSync = syncNow;
+  // 앱이 깨어날 때(알람·전원 버튼) 다시 계산해 그린다
+  window.einkRender = function () { renderAll(); scheduleRender(); };
   // 전체화면 전환 등으로 화면 높이가 바뀌면 글자 맞춤을 다시 한다
   window.addEventListener('resize', function () { scheduleFit('cal'); scheduleFit('quote'); });
 
