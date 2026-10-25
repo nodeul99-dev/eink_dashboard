@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- 낮 동안 잠든 화면을 시각 맞춰 켜는 포그라운드 서비스 (BOOX 가 음악 앱처럼 살려 두게) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- USB 로 Download 폴더에 넣은 연결 파일(dashboard.txt)을 읽기 위해. Poke3 는 안드로이드 10 -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
@@ -42,5 +45,14 @@
         <receiver
             android:name=".WakeReceiver"
             android:exported="false" />
+
+        <service
+            android:name=".DayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="전자잉크 대시보드: 잠든 화면을 정해진 시각에 켜서 책갈피 교체" />
+        </service>
     </application>
 </manifest>

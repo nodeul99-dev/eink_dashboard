@@ -97,9 +97,9 @@ public class MainActivity extends Activity {
     private View flashOverlay;
     private SharedPreferences prefs;
     private PowerManager.WakeLock recoverLock;
-    private PowerManager.WakeLock dayLock;   // 낮 동안 화면이 꺼져도 프로세서를 붙잡아 앱 타이머가 돌게
-    // 다음 깨울 시각이 이만큼 안이면 프로세서를 붙잡고 기다린다 (책갈피 간격은 최대 1시간, 밤엔 7시간 넘게 남는다)
+    // 다음 깨울 시각이 이만큼 안이면 DayService 로 프로세서를 붙잡고 기다린다 (책갈피 간격은 최대 1시간, 밤엔 7시간 넘게 남는다)
     private static final long DAY_HOLD_MAX_MS = 3 * 60 * 60 * 1000L;
+    private static final long TEST_DELAY_MS = 3 * 60 * 1000L;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private int lastReloadDay = -1;
     private int recoverStage = 0;      // 0: 정상, 1: 웹뷰를 새로 만듦 → 다시 쟀는데도 어긋나면 프로세스 재시작
@@ -231,7 +231,7 @@ public class MainActivity extends Activity {
                 "기본 홈 화면 바꾸기",
                 "절전 설정 (1분 뒤 잠들기)",
                 "화면 정보 (크기·알람 기록)",
-                "알람 시험 (1분 뒤 깨우기)",
+                "깨우기 시험 (3분 뒤)",
                 "기기 설정",
         };
         showDialog(new AlertDialog.Builder(this)
@@ -493,6 +493,7 @@ public class MainActivity extends Activity {
         // 전원 버튼으로 바로 재웠을 때: 창은 다음에 깰 때 사라지도록 지금 닫아 둔다
         handler.removeCallbacks(tidy);
         closeOverlays();
+        log(this, "화면 꺼짐");
         super.onStop();
     }
 
@@ -536,54 +537,30 @@ public class MainActivity extends Activity {
         armDayTimer(at);
     }
 
-    private final Runnable dayWake = () -> WakeReceiver.wakeScreen(this, "타이머");
-    private final Runnable testWake = () -> WakeReceiver.wakeScreen(this, "타이머 시험");
-
-    /** 다음 깨울 시각이 가까우면 프로세서를 붙잡고 앱 타이머를 건다. 멀면(밤) 놓아 줘서 완전히 잠들게 */
+    /** 다음 깨울 시각이 가까우면(낮) 포그라운드 서비스가 프로세서를 붙잡고 타이머를 건다. 멀면(밤) 서비스를 멈춰 완전히 잠들게 */
     private void armDayTimer(long at) {
-        handler.removeCallbacks(dayWake);
         long delay = at - System.currentTimeMillis();
-        if (delay > 0 && delay <= DAY_HOLD_MAX_MS) {
-            holdCpu(delay + 60 * 1000L);
-            handler.postDelayed(dayWake, delay);
-        } else {
-            releaseCpu();
-        }
+        if (delay > 0 && delay <= DAY_HOLD_MAX_MS) DayService.arm(this, at);
+        else DayService.stop(this);
     }
 
-    private void holdCpu(long ms) {
-        if (dayLock == null) {
-            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            if (pm == null) return;
-            dayLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "eink:day");
-            dayLock.setReferenceCounted(false);
-        }
-        dayLock.acquire(ms);   // 시간 제한을 둬서, 혹시 타이머가 안 돌아도 계속 붙잡지 않게
-    }
-
-    private void releaseCpu() {
-        if (dayLock != null && dayLock.isHeld()) dayLock.release();
-    }
-
-    /** 메뉴 '알람 시험': 70초 뒤 한 번 깨운다 (평소 알람과 다른 칸이라 서로 덮어쓰지 않는다) */
+    /** 메뉴 '깨우기 시험': 3분 뒤 한 번 깨운다 (확실히 깊이 잠든 뒤). 알람과 서비스 타이머를 같은 시각에 건다 */
     private void testAlarm() {
         AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         if (am == null) return;
-        long at = System.currentTimeMillis() + 70 * 1000L;
+        long at = System.currentTimeMillis() + TEST_DELAY_MS;
         PendingIntent wake = PendingIntent.getBroadcast(this, 9, new Intent(this, WakeReceiver.class).putExtra("test", true),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent show = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         am.setAlarmClock(new AlarmManager.AlarmClockInfo(at, show), wake);
-        // 낮 방식(프로세서를 붙잡고 앱 타이머)도 같은 시각에 — 기록에 둘 중 무엇이 울렸는지 남는다
-        holdCpu(70 * 1000L + 60 * 1000L);
-        handler.removeCallbacks(testWake);
-        handler.postDelayed(testWake, 70 * 1000L);
-        log(this, "알람 시험 예약 → " + new SimpleDateFormat("HH:mm:ss", Locale.KOREA).format(new Date(at)));
+        // 낮 방식(서비스 타이머)도 같은 시각에 — 기록에 둘 중 무엇이 울렸는지 남는다
+        DayService.armTest(this, at);
+        log(this, "깨우기 시험 예약 → " + new SimpleDateFormat("HH:mm:ss", Locale.KOREA).format(new Date(at)));
         // 바로 재워야 시험이 된다: 화면 꺼짐을 10초로 (만지면 1분으로 돌아감)
         prefs.edit().putLong("test_wake_at", at).putLong(WakeReceiver.PREF_ALARM_WAKE_AT, System.currentTimeMillis()).apply();
         setScreenTimeout(this, SCREEN_TIMEOUT_ALARM);
-        Toast.makeText(this, "화면을 만지지 마세요. 10초쯤 뒤 잠들고, 약 1분 뒤 알람으로 깨어납니다", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "화면을 만지지 마세요. 10초쯤 뒤 잠들고, 약 3분 뒤 깨어납니다", Toast.LENGTH_LONG).show();
     }
 
     /** 깨어날 때: 예약해 둔 알람 시각이 지났는데 울린 기록이 없으면 '놓침'으로 남긴다 */
@@ -735,7 +712,7 @@ public class MainActivity extends Activity {
         String line = new SimpleDateFormat("MM/dd HH:mm:ss", Locale.KOREA).format(new Date()) + " " + msg;
         String[] lines = (line + "\n" + p.getString("viewport_log", "")).split("\n");
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < lines.length && i < 15; i++) sb.append(lines[i]).append('\n');
+        for (int i = 0; i < lines.length && i < 25; i++) sb.append(lines[i]).append('\n');
         p.edit().putString("viewport_log", sb.toString()).commit();
     }
 
@@ -772,7 +749,6 @@ public class MainActivity extends Activity {
         handler.removeCallbacksAndMessages(null);
         webView.destroy();
         if (recoverLock != null && recoverLock.isHeld()) recoverLock.release();
-        releaseCpu();
         super.onDestroy();
     }
 

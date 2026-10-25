@@ -17,7 +17,7 @@ public class WakeReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        wakeScreen(context, intent.getBooleanExtra("test", false) ? "알람 시험 울림" : "알람 울림");
+        wakeScreen(context, intent.getBooleanExtra("test", false) ? "알람(시험) 울림" : "알람 울림");
     }
 
     /** 화면을 켜고 짧게(10초) 다시 잠들게 한다. why 는 '화면 정보' 기록에 남는다 */
