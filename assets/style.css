@@ -30,7 +30,7 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .list li { display: flex; padding: 0.05em 0; }
 /* flex gap 은 구형 웹뷰에서 안 먹으므로 margin 으로 */
 .list li > * + * { margin-left: 0.5em; }
-.list .t { flex: none; min-width: 3.2em; font-weight: 700; }
+.list .t { flex: none; min-width: 3.2em; font-weight: 400; }   /* 시각은 보통 굵기 */
 .list .x { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .list .r { flex: none; font-size: 0.85em; }
 .h2r { float: right; font-weight: 400; font-size: 0.8em; padding-top: 0.15em; }
@@ -39,7 +39,7 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 /* 칸 제목 앞 세로 막대 (글꼴과 상관없이 선명하게 CSS 로 그림) */
 .h2t::before { content: ''; display: inline-block; width: 0.22em; height: 0.95em; background: #000;
                margin-right: 0.35em; vertical-align: -0.12em; }
-.list .d { flex: none; min-width: 4.9em; font-variant-numeric: tabular-nums; font-size: 0.85em; font-weight: 700; padding-top: 0.12em; }
+.list .d { flex: none; min-width: 5.6em; font-variant-numeric: tabular-nums; font-weight: 700; }   /* 날짜: 같은 크기, 굵게(날짜 구분) */
 .empty { font-size: 0.85em; }
 /* 오늘·다가오는 일정 글자 크기 (고정): 책갈피 인용문(.q-text 0.9em)과 같은 0.9rem */
 #today, #week { font-size: 0.9rem; }
