@@ -507,6 +507,8 @@
   window.einkSync = syncNow;
   // 앱이 깨어날 때(알람·전원 버튼) 다시 계산해 그린다
   window.einkRender = function () { renderAll(); scheduleRender(); };
+  // 앱이 잠들기 전에 ⚙ 설정 창을 닫는다 (떠 있으면 잠든 내내 화면을 가린다)
+  window.einkCloseOverlays = function () { if ($('qset') && !$('qset').hidden) closeSettings(); };
   // 전체화면 전환 등으로 화면 높이가 바뀌면 글자 맞춤을 다시 한다
   window.addEventListener('resize', function () { scheduleFit('cal'); scheduleFit('quote'); });
 

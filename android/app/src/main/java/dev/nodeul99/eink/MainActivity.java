@@ -97,6 +97,10 @@ public class MainActivity extends Activity {
     private int lastReloadDay = -1;
     private int recoverStage = 0;      // 0: 정상, 1: 웹뷰를 새로 만듦 → 다시 쟀는데도 어긋나면 프로세스 재시작
     private String lastViewport = "";  // 메뉴 '화면 정보'에 보여 줄 마지막 측정값
+    private AlertDialog openDialog;    // 떠 있는 관리 창 (잠들기 전에 닫는다)
+    // 잠들기 직전에 열린 창을 닫는다: 투명 화면보호기는 꺼지는 순간의 화면을 그대로 남기므로
+    // 창이 떠 있으면 잠든 내내 대시보드를 가린다. 화면 꺼짐(1분)보다 8초 먼저
+    private static final long TIDY_BEFORE_SLEEP_MS = SCREEN_TIMEOUT_NORMAL - 8 * 1000L;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -188,6 +192,27 @@ public class MainActivity extends Activity {
 
     // ---------- 관리 메뉴 ----------
 
+    /** 관리 창을 띄우고 기억해 둔다 (잠들기 전에 닫을 수 있게) */
+    private void showDialog(AlertDialog d) {
+        openDialog = d;
+        d.show();
+        scheduleTidy();
+    }
+
+    private final Runnable tidy = this::closeOverlays;
+
+    private void scheduleTidy() {
+        handler.removeCallbacks(tidy);
+        handler.postDelayed(tidy, TIDY_BEFORE_SLEEP_MS);
+    }
+
+    /** 열린 창(관리 메뉴·화면 정보·책갈피 ⚙ 설정)을 닫는다 */
+    private void closeOverlays() {
+        if (openDialog != null && openDialog.isShowing()) openDialog.dismiss();
+        openDialog = null;
+        webView.evaluateJavascript("window.einkCloseOverlays && window.einkCloseOverlays()", null);
+    }
+
     private void showMenu() {
         final String[] items = {
                 "지금 동기화",
@@ -201,7 +226,7 @@ public class MainActivity extends Activity {
                 "화면 정보 (크기 문제 진단)",
                 "기기 설정",
         };
-        new AlertDialog.Builder(this)
+        showDialog(new AlertDialog.Builder(this)
                 .setTitle("대시보드 메뉴")
                 .setItems(items, (d, which) -> {
                     switch (which) {
@@ -220,7 +245,7 @@ public class MainActivity extends Activity {
                 })
                 .setNegativeButton("닫기", null)
                 .setOnDismissListener(d -> hideSystemBars())
-                .show();
+                .create());
     }
 
     private void openSettings(String action) {
@@ -264,7 +289,7 @@ public class MainActivity extends Activity {
         token.setText(prefs.getString("gas_token", ""));
         box.addView(token);
 
-        new AlertDialog.Builder(this)
+        showDialog(new AlertDialog.Builder(this)
                 .setTitle("연결 설정")
                 .setView(box)
                 .setPositiveButton("저장", (d, w) -> {
@@ -278,7 +303,7 @@ public class MainActivity extends Activity {
                 })
                 .setNegativeButton("취소", null)
                 .setOnDismissListener(d -> hideSystemBars())
-                .show();
+                .create());
     }
 
     /** 연결 정보를 페이지에 넘긴다. 페이지가 #gas=...&token=... 를 읽어 기기에 저장하고 주소에서 지운다 */
@@ -429,6 +454,8 @@ public class MainActivity extends Activity {
         long alarmAt = prefs.getLong(WakeReceiver.PREF_ALARM_WAKE_AT, 0);
         boolean byAlarm = System.currentTimeMillis() - alarmAt < ALARM_WAKE_WINDOW_MS;
         if (!byAlarm) setScreenTimeout(this, SCREEN_TIMEOUT_NORMAL);
+        log(this, byAlarm ? "화면 켜짐: 알람" : "화면 켜짐: 전원 버튼·돌아옴");
+        if (!byAlarm) scheduleTidy();
         // 다시 그리기 (바뀐 칸만 그리므로 바뀐 게 없으면 화면은 그대로)
         if (!reloadIfNewDay()) webView.evaluateJavascript("window.einkRender && window.einkRender()", null);
         scheduleViewportCheck();
@@ -437,6 +464,7 @@ public class MainActivity extends Activity {
     @Override
     public void onUserInteraction() {
         super.onUserInteraction();
+        scheduleTidy();
         // 사람이 만지면 알람용 10초 대신 평소 1분으로
         if (prefs.getLong(WakeReceiver.PREF_ALARM_WAKE_AT, 0) != 0) {
             prefs.edit().putLong(WakeReceiver.PREF_ALARM_WAKE_AT, 0).apply();
@@ -448,6 +476,14 @@ public class MainActivity extends Activity {
     protected void onPause() {
         webView.onPause();
         super.onPause();
+    }
+
+    @Override
+    protected void onStop() {
+        // 전원 버튼으로 바로 재웠을 때: 창은 다음에 깰 때 사라지도록 지금 닫아 둔다
+        handler.removeCallbacks(tidy);
+        closeOverlays();
+        super.onStop();
     }
 
     // ---------- 잠들기 / 알람으로 깨우기 ----------
@@ -616,12 +652,17 @@ public class MainActivity extends Activity {
     }
 
     private void logRecovery(String msg) {
-        String line = new SimpleDateFormat("MM/dd HH:mm", Locale.KOREA).format(new Date()) + " " + msg;
-        String log = prefs.getString("viewport_log", "");
-        String[] lines = (line + "\n" + log).split("\n");
+        log(this, msg);
+    }
+
+    /** 메뉴 '화면 정보'의 최근 기록 (새것이 위, 15줄까지): 알람으로 깬 시각, 화면 크기 복구 */
+    static void log(Context c, String msg) {
+        SharedPreferences p = c.getSharedPreferences("eink", Context.MODE_PRIVATE);
+        String line = new SimpleDateFormat("MM/dd HH:mm:ss", Locale.KOREA).format(new Date()) + " " + msg;
+        String[] lines = (line + "\n" + p.getString("viewport_log", "")).split("\n");
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < lines.length && i < 8; i++) sb.append(lines[i]).append('\n');
-        prefs.edit().putString("viewport_log", sb.toString()).apply();
+        for (int i = 0; i < lines.length && i < 15; i++) sb.append(lines[i]).append('\n');
+        p.edit().putString("viewport_log", sb.toString()).commit();
     }
 
     /** 메뉴 '화면 정보': 지금 잰 값과 최근 복구 기록. 크기 문제가 다시 보이면 이 화면을 찍어 보내면 된다 */
@@ -633,16 +674,16 @@ public class MainActivity extends Activity {
             String msg = "판정: " + (bad == null ? "정상" : bad)
                     + "\n\n" + lastViewport
                     + "\n\n다음 알람: " + (next > System.currentTimeMillis()
-                        ? new SimpleDateFormat("MM/dd HH:mm", Locale.KOREA).format(new Date(next)) : "없음")
+                        ? new SimpleDateFormat("MM/dd HH:mm:ss", Locale.KOREA).format(new Date(next)) : "없음")
                     + "\n화면 꺼짐 시간: " + Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, -1) / 1000 + "초"
                     + "\n앱 " + BuildConfig.VERSION_NAME
                     + "\n\n최근 기록\n" + prefs.getString("viewport_log", "(없음)");
-            new AlertDialog.Builder(this)
+            showDialog(new AlertDialog.Builder(this)
                     .setTitle("화면 정보")
                     .setMessage(msg)
                     .setPositiveButton("닫기", null)
                     .setOnDismissListener(d -> hideSystemBars())
-                    .show();
+                    .create());
         });
     }
 

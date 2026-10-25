@@ -20,6 +20,7 @@ public class WakeReceiver extends BroadcastReceiver {
         context.getSharedPreferences("eink", Context.MODE_PRIVATE).edit()
                 .putLong(PREF_ALARM_WAKE_AT, System.currentTimeMillis()).commit();
         MainActivity.setScreenTimeout(context, MainActivity.SCREEN_TIMEOUT_ALARM);
+        MainActivity.log(context, "알람 울림 → 화면 켬");
         PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         if (pm == null) return;
         PowerManager.WakeLock lock = pm.newWakeLock(
