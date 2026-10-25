@@ -16,9 +16,10 @@ body {
 
 .top { display: flex; justify-content: space-between; align-items: center;
        border-bottom: 3px solid #000; padding-bottom: 0.2rem; margin-bottom: 0.45rem; }
-.date { font-size: 1.05em; font-weight: 700; }
+/* 머리줄 크기 고정 (예전 화면에서 글자 맞춤으로 0.68배가 되던 크기). 칸에 여유가 생겨도 커지지 않게 rem */
+.date { font-size: 0.72rem; font-weight: 700; }
 /* 머리줄 왼쪽 제목. Poke3(안드로이드)엔 Arial 이 없어 비슷한 글꼴로 대체된다 */
-.brand { font-size: 1.2em; font-weight: 700; font-family: Arial, Helvetica, "Liberation Sans", Roboto, sans-serif;
+.brand { font-size: 0.82rem; font-weight: 700; font-family: Arial, Helvetica, "Liberation Sans", Roboto, sans-serif;
           background: #000; color: #fff; padding: 0.05em 0.45em 0.1em; }   /* 검은 상자에 흰 글자 */
 
 section { margin-bottom: 0.5em; }
@@ -40,6 +41,8 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
                margin-right: 0.35em; vertical-align: -0.12em; }
 .list .d { flex: none; min-width: 4.9em; font-variant-numeric: tabular-nums; font-size: 0.85em; font-weight: 700; padding-top: 0.12em; }
 .empty { font-size: 0.85em; }
+/* 다가오는 일정 글자 크기 고정 (예전 화면에서 글자 맞춤으로 0.68배가 되던 크기). 칸에 여유가 생겨도 커지지 않게 rem */
+#week { font-size: 0.68rem; }
 
 /* 맨 아래 줄: 책갈피 버튼(왼쪽) + 동기화 시각(오른쪽). 버튼 글씨도 동기화 시각과 같은 크기 */
 .foot { flex: none; display: flex; justify-content: space-between; align-items: center;
