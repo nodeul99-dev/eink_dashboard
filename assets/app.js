@@ -9,7 +9,7 @@
  * - 동기화 시점: 페이지 열 때, 네트워크가 연결되는 순간(online), 화면을 탭할 때, 메뉴 '지금 동기화'.
  *   (전력 절약: 주기적 동기화는 하지 않는다. 앱이 매일 새벽 페이지를 다시 불러올 때도 한 번 동기화된다)
  * - 책갈피는 동기화와 무관하다: 받아 둔 인용구 안에서 기기 시계로 매시 정각에 바뀌고, ↻·보기 방식 버튼으로 바로 바뀐다.
- * - 잔상 줄이기: 내용이 바뀐 영역만 다시 그린다. 화면 재계산은 정각·30분(인용구 간격이 짧으면 그 간격).
+ * - 잔상 줄이기: 내용이 바뀐 영역만 다시 그린다. 화면 재계산은 책갈피 간격 경계마다.
  * - 앱 안에서는 다음에 화면이 바뀔 시각을 EinkApp.scheduleWake 로 알려 준다 → 앱이 잠들었다 그때 깨운다.
  *
  * 처음 한 번 아래 주소로 열면 연결 정보가 기기에 저장된다 (# 뒤는 서버로 전송되지 않음):
@@ -137,28 +137,24 @@
 
     if (!data) {
       var msg = load(KEY_GAS) || DEMO ? '아직 동기화 전입니다' : '연동 정보가 없습니다 (README 참고)';
-      setHtml('today', '<li class="empty">' + msg + '</li>'); setHtml('week', ''); setHtml('today-done', '');
+      setHtml('today', '<li class="empty">' + msg + '</li>'); setHtml('week', '');
       return;
     }
 
-    // ── 오늘: 끝나지 않은 일정 (진행 중 표시), 지난 건 제목 줄에 건수만
+    // ── 오늘: 캘린더 그대로 (끝난 일정도 남긴다. 시각에 따라 바뀌지 않으므로 일정 때문에 깨울 일이 없다)
     var todays = eventsOn(today);
-    var remain = todays.filter(function (ev) { return ev.all_day || ev.end > nowStr; });
-    var done = todays.length - remain.length;
     // 오늘 칸은 최대 CAL_LINES-1 줄. 넘치면 마지막 줄을 '외 N건' 으로
     var todayMax = CAL_LINES - 1;
-    var todayShown = remain.length > todayMax ? remain.slice(0, todayMax - 1) : remain;
+    var todayShown = todays.length > todayMax ? todays.slice(0, todayMax - 1) : todays;
     var html = todayShown.map(function (ev) {
-      var isNow = !ev.all_day && ev.start <= nowStr;
       return '<li><span class="t">' + (ev.all_day ? '종일' : hm(ev.start)) + '</span><span class="x">' +
-        esc(ev.title) + '</span>' + (isNow ? '<span class="r">진행 중</span>' : '') + '</li>';
+        esc(ev.title) + '</span></li>';
     }).join('');
-    if (todayShown.length < remain.length) html += '<li class="empty">외 ' + (remain.length - todayShown.length) + '건</li>';
-    setHtml('today-done', done > 0 ? '지난 일정 ' + done + '건' : '');
-    setHtml('today', html || '<li class="empty">오늘 남은 일정 없음</li>');
+    if (todayShown.length < todays.length) html += '<li class="empty">외 ' + (todays.length - todayShown.length) + '건</li>';
+    setHtml('today', html || '<li class="empty">오늘 일정 없음</li>');
 
     // 다가오는 일정 줄 수: 오늘 일정과 합쳐 CAL_LINES 줄 안에서, 최대 UPCOMING_MAX 줄 (최소 1줄)
-    var todayLines = Math.max(1, Math.min(remain.length, todayMax));
+    var todayLines = Math.max(1, Math.min(todays.length, todayMax));
     var upcomingMax = Math.max(1, Math.min(UPCOMING_MAX, CAL_LINES - todayLines));
 
     // ── 다가오는 일정: 내일부터 받아 둔 범위 끝까지 (최대 upcomingMax 줄)
@@ -376,7 +372,7 @@
   }
 
   // ---------- 앱 알람 (전자책처럼 잠들었다 깨기) ----------
-  // 다음에 화면이 바뀔 시각: 책갈피 교체, 오늘 일정의 시작('진행 중')·끝(지우기), 자정(날짜·일정 넘김)
+  // 다음에 화면이 바뀔 시각: 책갈피 교체(07~18시, 설정한 간격), 자정(날짜·일정 넘김)
   function nextChangeTime(now) {
     var t = [];
     var day0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -385,12 +381,6 @@
     var qm = m < startMin ? startMin : startMin + (Math.floor((m - startMin) / quoteInterval) + 1) * quoteInterval;
     if (qm < endMin) t.push(day0.getTime() + qm * 60000);
     t.push(day0.getTime() + 86400000);   // 자정
-    var nowStr = ymdhm(now);
-    eventsOn(ymd(now)).forEach(function (ev) {
-      if (ev.all_day) return;
-      if (ev.start > nowStr) t.push(toDate(ev.start.slice(0, 16)).getTime());
-      if (ev.end > nowStr) t.push(toDate(ev.end.slice(0, 16)).getTime());
-    });
     return Math.min.apply(null, t);
   }
 
@@ -473,13 +463,12 @@
     if (clear && history.replaceState) history.replaceState(null, '', location.pathname + location.search);
   }
 
-  // 전력 절약: 화면은 매시 정각과 30분에만 다시 계산한다(인용구 간격이 더 짧으면 그 간격마다) (일정은 보통 정각·30분에 끝나고, 인용구는 정각에 바뀐다).
-  // 한국 시간은 UTC+9 라 30분 단위 경계가 그대로 맞는다. 바뀐 칸만 다시 그리므로 전자잉크 갱신은 더 드물다.
-  // 인용구 간격이 30분보다 짧으면 그 간격마다 (5·10분은 30분을 나누므로 정각·30분도 함께 맞는다)
+  // 깨어 있는 동안의 다시 계산: 책갈피 간격 경계마다 (간격은 60을 나누므로 자정도 함께 맞는다).
+  // 한국 시간은 UTC+9 라 분 단위 경계가 그대로 맞는다. 바뀐 칸만 다시 그린다.
   var renderTimer = null;
   function scheduleRender() {
     if (renderTimer) clearTimeout(renderTimer);
-    var period = Math.min(30, quoteInterval) * 60000;
+    var period = quoteInterval * 60000;
     renderTimer = setTimeout(function () { renderAll(); scheduleRender(); }, period - (Date.now() % period) + 50);
   }
 

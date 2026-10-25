@@ -32,7 +32,6 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .list li > * + * { margin-left: 0.5em; }
 .list .t { flex: none; min-width: 3.2em; font-weight: 400; }   /* 시각은 보통 굵기 */
 .list .x { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.list .r { flex: none; font-size: 0.85em; }
 .h2r { float: right; font-weight: 400; font-size: 0.8em; padding-top: 0.15em; }
 /* 칸 제목(오늘·다가오는 일정)은 같은 크기. 글자 맞춤(축소)에 끌려가지 않게 rem 으로 고정 */
 .cal h2 { font-size: 1rem; }

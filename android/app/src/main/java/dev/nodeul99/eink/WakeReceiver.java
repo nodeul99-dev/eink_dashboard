@@ -13,14 +13,16 @@ import android.os.PowerManager;
 public class WakeReceiver extends BroadcastReceiver {
 
     static final String PREF_ALARM_WAKE_AT = "alarm_wake_at";
+    static final String PREF_LAST_ALARM = "last_alarm_at";   // 지우지 않는 '마지막으로 알람이 울린 시각'
 
     @Override
     @SuppressWarnings("deprecation")
     public void onReceive(Context context, Intent intent) {
+        long now = System.currentTimeMillis();
         context.getSharedPreferences("eink", Context.MODE_PRIVATE).edit()
-                .putLong(PREF_ALARM_WAKE_AT, System.currentTimeMillis()).commit();
+                .putLong(PREF_ALARM_WAKE_AT, now).putLong(PREF_LAST_ALARM, now).commit();
         MainActivity.setScreenTimeout(context, MainActivity.SCREEN_TIMEOUT_ALARM);
-        MainActivity.log(context, "알람 울림 → 화면 켬");
+        MainActivity.log(context, (intent.getBooleanExtra("test", false) ? "알람 시험 울림" : "알람 울림") + " → 화면 켬");
         PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         if (pm == null) return;
         PowerManager.WakeLock lock = pm.newWakeLock(

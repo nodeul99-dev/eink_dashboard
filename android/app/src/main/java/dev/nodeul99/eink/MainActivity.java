@@ -223,7 +223,8 @@ public class MainActivity extends Activity {
                 "연결 설정 (직접 입력)",
                 "기본 홈 화면 바꾸기",
                 "절전 설정 (1분 뒤 잠들기)",
-                "화면 정보 (크기 문제 진단)",
+                "화면 정보 (크기·알람 기록)",
+                "알람 시험 (1분 뒤 깨우기)",
                 "기기 설정",
         };
         showDialog(new AlertDialog.Builder(this)
@@ -239,7 +240,8 @@ public class MainActivity extends Activity {
                         case 6: openSettings(Settings.ACTION_HOME_SETTINGS); break;
                         case 7: setupSleep(); break;
                         case 8: showViewportInfo(); break;
-                        case 9: openSettings(Settings.ACTION_SETTINGS); break;
+                        case 9: testAlarm(); break;
+                        case 10: openSettings(Settings.ACTION_SETTINGS); break;
                         default: break;
                     }
                 })
@@ -455,6 +457,7 @@ public class MainActivity extends Activity {
         boolean byAlarm = System.currentTimeMillis() - alarmAt < ALARM_WAKE_WINDOW_MS;
         if (!byAlarm) setScreenTimeout(this, SCREEN_TIMEOUT_NORMAL);
         log(this, byAlarm ? "화면 켜짐: 알람" : "화면 켜짐: 전원 버튼·돌아옴");
+        checkMissedAlarm();
         if (!byAlarm) scheduleTidy();
         // 다시 그리기 (바뀐 칸만 그리므로 바뀐 게 없으면 화면은 그대로)
         if (!reloadIfNewDay()) webView.evaluateJavascript("window.einkRender && window.einkRender()", null);
@@ -508,12 +511,12 @@ public class MainActivity extends Activity {
     void scheduleWake(long at) {
         AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         if (am == null) return;
-        PendingIntent wake = PendingIntent.getBroadcast(this, 0, new Intent(this, WakeReceiver.class),
+        if (at <= System.currentTimeMillis()) return;
+        // 직전 알람 시각이 이미 지났으면(늦게 울릴 수 있음) 덮어쓰지 않도록 다른 칸(0/1)에 예약한다
+        int slot = prefs.getInt("wake_slot", 0);
+        if (prefs.getLong("next_wake_at", 0) <= System.currentTimeMillis()) slot = 1 - slot;
+        PendingIntent wake = PendingIntent.getBroadcast(this, slot, new Intent(this, WakeReceiver.class),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        if (at <= System.currentTimeMillis()) {
-            am.cancel(wake);
-            return;
-        }
         PendingIntent show = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         try {
@@ -522,7 +525,37 @@ public class MainActivity extends Activity {
             // 안드로이드 12+ 에서 정확한 알람 권한이 없을 때 (Poke3 는 10 이라 해당 없음)
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, wake);
         }
-        prefs.edit().putLong("next_wake_at", at).apply();
+        prefs.edit().putLong("next_wake_at", at).putInt("wake_slot", slot).apply();
+    }
+
+    /** 메뉴 '알람 시험': 70초 뒤 한 번 깨운다 (평소 알람과 다른 칸이라 서로 덮어쓰지 않는다) */
+    private void testAlarm() {
+        AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return;
+        long at = System.currentTimeMillis() + 70 * 1000L;
+        PendingIntent wake = PendingIntent.getBroadcast(this, 9, new Intent(this, WakeReceiver.class).putExtra("test", true),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent show = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        am.setAlarmClock(new AlarmManager.AlarmClockInfo(at, show), wake);
+        log(this, "알람 시험 예약 → " + new SimpleDateFormat("HH:mm:ss", Locale.KOREA).format(new Date(at)));
+        // 바로 재워야 시험이 된다: 화면 꺼짐을 10초로 (만지면 1분으로 돌아감)
+        prefs.edit().putLong("test_wake_at", at).putLong(WakeReceiver.PREF_ALARM_WAKE_AT, System.currentTimeMillis()).apply();
+        setScreenTimeout(this, SCREEN_TIMEOUT_ALARM);
+        Toast.makeText(this, "화면을 만지지 마세요. 10초쯤 뒤 잠들고, 약 1분 뒤 알람으로 깨어납니다", Toast.LENGTH_LONG).show();
+    }
+
+    /** 깨어날 때: 예약해 둔 알람 시각이 지났는데 울린 기록이 없으면 '놓침'으로 남긴다 */
+    private void checkMissedAlarm() {
+        long now = System.currentTimeMillis();
+        long last = prefs.getLong(WakeReceiver.PREF_LAST_ALARM, 0);
+        String[] keys = {"next_wake_at", "test_wake_at"};
+        for (String k : keys) {
+            long at = prefs.getLong(k, 0);
+            if (at == 0 || at > now - 5000 || last >= at || prefs.getLong("missed_checked_at", 0) == at) continue;
+            log(this, "알람 놓침 (예약 " + new SimpleDateFormat("HH:mm:ss", Locale.KOREA).format(new Date(at)) + ")");
+            prefs.edit().putLong("missed_checked_at", at).apply();
+        }
     }
 
     /** 메뉴 '절전 설정': 시스템 설정 수정 권한을 받아 화면 꺼짐 시간을 1분으로 */
