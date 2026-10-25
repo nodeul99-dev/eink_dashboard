@@ -95,6 +95,8 @@
   }
 
   function fit(paneId) {
+    // 일정 칸은 글자 크기 고정 (줄 수 상한이 있어 넘치지 않는다). 글자 맞춤은 책갈피만
+    if (paneId !== 'quote') return;
     var pane = $(paneId);
     var inner = $(paneId + '-fit');
     var scale = 1;
