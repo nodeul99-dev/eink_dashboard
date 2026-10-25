@@ -74,11 +74,11 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 #quote-fit { display: flex; flex-direction: column;   /* 출처를 늘 메모지 오른쪽 아래에 */
              --fold: 19px;   /* 정수 px: 선이 픽셀 경계에 맞아 번지지 않게 (16px 에서 20% 키움) */
              flex: 1 1 auto; position: relative; border: 2px solid #444;
-             /* 바탕 #e6e6e6(접힌 면 #b4b4b4 보다 옅게) 위에 큰 따옴표 무늬: 여는 “ 왼쪽 위, 닫는 ” 오른쪽 아래.
-                무늬 색은 바탕(#e6e6e6)보다 진한 #c8c8c8 (접힌 면 #b4b4b4 보다는 옅게). 글꼴과 상관없게 SVG 로 그림 */
-             background: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -1 94 63" fill="%23c8c8c8"%3E%3Cg transform="rotate%28180 45 30.5%29"%3E%3Cpath d="M20 4a15 15 0 0 1 15 15c0 17-11 33-29 38l-2-5c10-5 16-13 16-20a15 15 0 1 1 0-28z"/%3E%3Cpath transform="translate%2844 0%29" d="M20 4a15 15 0 0 1 15 15c0 17-11 33-29 38l-2-5c10-5 16-13 16-20a15 15 0 1 1 0-28z"/%3E%3C/g%3E%3C/svg%3E') no-repeat left -0.15em top -0.2em / 5em auto,
-                         url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -1 94 63" fill="%23c8c8c8"%3E%3Cpath d="M20 4a15 15 0 0 1 15 15c0 17-11 33-29 38l-2-5c10-5 16-13 16-20a15 15 0 1 1 0-28z"/%3E%3Cpath transform="translate%2844 0%29" d="M20 4a15 15 0 0 1 15 15c0 17-11 33-29 38l-2-5c10-5 16-13 16-20a15 15 0 1 1 0-28z"/%3E%3C/svg%3E') no-repeat right -0.15em bottom -0.25em / 5em auto,
-                         #e6e6e6;
+             /* 바탕 #efefef(접힌 면 #c4c4c4 보다 옅게) 위에 큰 따옴표 무늬: 여는 “ 왼쪽 위, 닫는 ” 오른쪽 아래.
+                무늬 색은 바탕(#efefef)보다 진한 #d6d6d6 (접힌 면 #c4c4c4 보다는 옅게). 글꼴과 상관없게 SVG 로 그림 */
+             background: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -1 94 63" fill="%23d6d6d6"%3E%3Cg transform="rotate%28180 45 30.5%29"%3E%3Cpath d="M20 4a15 15 0 0 1 15 15c0 17-11 33-29 38l-2-5c10-5 16-13 16-20a15 15 0 1 1 0-28z"/%3E%3Cpath transform="translate%2844 0%29" d="M20 4a15 15 0 0 1 15 15c0 17-11 33-29 38l-2-5c10-5 16-13 16-20a15 15 0 1 1 0-28z"/%3E%3C/g%3E%3C/svg%3E') no-repeat left -0.15em top -0.2em / 5em auto,
+                         url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -1 94 63" fill="%23d6d6d6"%3E%3Cpath d="M20 4a15 15 0 0 1 15 15c0 17-11 33-29 38l-2-5c10-5 16-13 16-20a15 15 0 1 1 0-28z"/%3E%3Cpath transform="translate%2844 0%29" d="M20 4a15 15 0 0 1 15 15c0 17-11 33-29 38l-2-5c10-5 16-13 16-20a15 15 0 1 1 0-28z"/%3E%3C/svg%3E') no-repeat right -0.15em bottom -0.25em / 5em auto,
+                         #efefef;
             
              padding: 0.8em 1em 0.7em 1em; margin-top: 0.1em;   /* 글 좌우 여백 같게 */
              clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%); }
@@ -86,7 +86,7 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
    shape-rendering=crispEdges 로 가장자리 회색(안티앨리어싱)을 없애 전자잉크에서 굵기가 고르게 나온다.
    메모지 바깥 모서리(top/right -2px)에 딱 맞춰 붙인다 */
 #quote-fit::after { content: ''; position: absolute; top: -2px; right: -2px; width: var(--fold); height: var(--fold);
-                    background: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19 19" shape-rendering="crispEdges"%3E%3Cpath d="M0 0V19H19Z" fill="%23b4b4b4"/%3E%3Cpath d="M0 0H2V19H0Z M0 17H19V19H0Z M0 0L19 19H16.17L0 2.83Z" fill="%23444"/%3E%3C/svg%3E') no-repeat; background-size: 100% 100%; }
+                    background: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19 19" shape-rendering="crispEdges"%3E%3Cpath d="M0 0V19H19Z" fill="%23c4c4c4"/%3E%3Cpath d="M0 0H2V19H0Z M0 17H19V19H0Z M0 0L19 19H16.17L0 2.83Z" fill="%23444"/%3E%3C/svg%3E') no-repeat; background-size: 100% 100%; }
 /* 노트에서 굵게·형광펜 친 부분은 굵게 대신 밑줄 (글씨 굵기는 모두 보통) */
 .q-text { font-weight: 400; }
 .q-text b { font-weight: 400; text-decoration: underline; text-underline-offset: 0.2em; }
