@@ -25,7 +25,8 @@
   var SYNC_MIN = 30;
   var QUOTE_FIRST_HOUR = 7;   // 07시부터
   var QUOTE_LAST_HOUR = 17;   // 17시까지 매시 정각에 바뀐다
-  var WEEK_MAX_LINES = 6;
+  var CAL_LINES = 8;       // 오늘 + 다가오는 일정 줄 수 합계 목표 (오늘이 많으면 다가오는 일정이 줄어든다)
+  var UPCOMING_MAX = 5;    // 다가오는 일정 최대 줄 수
 
   var params = parseQuery(location.search.slice(1));
   var DEMO = params.demo === '1';
@@ -130,43 +131,26 @@
 
     if (!data) {
       var msg = load(KEY_GAS) || DEMO ? '아직 동기화 전입니다' : '연동 정보가 없습니다 (README 참고)';
-      setHtml('hero', '<div class="hero-label">' + msg + '</div>');
-      setHtml('today', ''); setHtml('week', '');
+      setHtml('today', '<li class="empty">' + msg + '</li>'); setHtml('week', ''); setHtml('today-done', '');
       return;
     }
 
+    // ── 오늘: 끝나지 않은 일정 (진행 중 표시), 지난 건 제목 줄에 건수만
     var todays = eventsOn(today);
-    var timed = todays.filter(function (ev) { return !ev.all_day; });
-    var ongoing = timed.filter(function (ev) { return ev.start <= nowStr && ev.end > nowStr; });
-    var next = timed.filter(function (ev) { return ev.start > nowStr; })[0] || null;
-
-    // ── 다음 일정 강조 상자
-    var hero;
-    if (next) {
-      hero = '<div class="hero-label">다음 일정</div>' +
-        '<div class="hero-main"><span class="t">' + hm(next.start) + '</span>' + esc((next.title)) + '</div>';
-    } else if (ongoing.length) {
-      hero = '<div class="hero-label">진행 중 · ' + hm(ongoing[0].end) + ' 종료</div>' +
-        '<div class="hero-main">' + esc((ongoing[0].title)) + '</div>';
-    } else {
-      // 오늘 일정만 다룬다. 내일 이후 일정은 끌어오지 않는다
-      hero = '<div class="hero-label">다음 일정</div><div class="hero-main none">오늘 남은 일정 없음</div>';
-    }
-    setHtml('hero', hero);
-
-    // ── 오늘: 끝나지 않은 일정만 (강조 상자에 나온 다음 일정은 빼고), 지난 건 건수만
-    var remain = todays.filter(function (ev) { return ev.all_day || ev.end > nowStr; })
-      .filter(function (ev) { return ev !== next; });
-    var done = todays.length - remain.length - (next ? 1 : 0);
+    var remain = todays.filter(function (ev) { return ev.all_day || ev.end > nowStr; });
+    var done = todays.length - remain.length;
     var html = remain.map(function (ev) {
       var isNow = !ev.all_day && ev.start <= nowStr;
       return '<li><span class="t">' + (ev.all_day ? '종일' : hm(ev.start)) + '</span><span class="x">' +
-        esc((ev.title)) + '</span>' + (isNow ? '<span class="r">진행 중</span>' : '') + '</li>';
+        esc(ev.title) + '</span>' + (isNow ? '<span class="r">진행 중</span>' : '') + '</li>';
     }).join('');
     setHtml('today-done', done > 0 ? '지난 일정 ' + done + '건' : '');
-    setHtml('today', html || '<li class="empty">' + (next ? '이후 일정 없음' : '없음') + '</li>');
+    setHtml('today', html || '<li class="empty">오늘 남은 일정 없음</li>');
 
-    // ── 다가오는 일정: 내일부터 받아 둔 범위 끝까지 (최대 WEEK_MAX_LINES 줄)
+    // 다가오는 일정 줄 수: 오늘 일정과 합쳐 CAL_LINES 줄 안에서, 최대 UPCOMING_MAX 줄 (최소 1줄)
+    var upcomingMax = Math.max(1, Math.min(UPCOMING_MAX, CAL_LINES - Math.max(1, remain.length)));
+
+    // ── 다가오는 일정: 내일부터 받아 둔 범위 끝까지 (최대 upcomingMax 줄)
     var lastDay = data.range_end ? addDays(data.range_end, -1) : addDays(today, 14);
     var lines = 0, more = 0, weekHtml = '', shown = todays.slice();   // 오늘 칸에 나온 일정은 빼고
     for (var d = addDays(today, 1); d <= lastDay; d = addDays(d, 1)) {
@@ -174,7 +158,7 @@
       var evs = eventsOn(d).filter(function (ev) { return shown.indexOf(ev) < 0; });
       evs.forEach(function (ev, i) {
         shown.push(ev);
-        if (lines >= WEEK_MAX_LINES) { more++; return; }
+        if (lines >= upcomingMax) { more++; return; }
         lines++;
         // 날짜는 그날 첫 일정에만 적는다
         weekHtml += '<li><span class="d">' + (i === 0 ? mmddDow(d) : '') + '</span><span class="t">' +
