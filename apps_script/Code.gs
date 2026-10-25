@@ -15,6 +15,7 @@
  *   CALENDAR_ID     업무 캘린더 ID (listCalendars() 로 확인) ┘ ID 가 있으면 ID 우선
  *   DAYS_AHEAD      선택. 일반 일정을 며칠 앞까지 받을지. 기본 14
  *   QUOTE_MAX_CHARS 선택. 이보다 긴 인용구는 건너뛴다. 기본 300
+ *   TITLE           선택. 화면 맨 위 제목 (예: OOO의 일정). 없으면 'Schedule Board'. 이름은 레포가 아니라 여기에만 둔다
  *   QUOTES_N, QUOTES_0.. 자동. 압축한 인용구 조각 (직접 고치지 말 것)
  */
 
@@ -43,6 +44,7 @@ function buildPayload_(props) {
   var q = loadQuotes_(props);
   return {
     generated_at: Utilities.formatDate(now, tz, "yyyy-MM-dd'T'HH:mm:ssXXX"),
+    title: props.getProperty('TITLE') || null,
     range_end: Utilities.formatDate(end, tz, 'yyyy-MM-dd'),
     events: events,
     quotes_updated_at: q.updated_at,

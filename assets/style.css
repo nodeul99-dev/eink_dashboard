@@ -18,8 +18,8 @@ body {
        border-bottom: 3px solid #000; padding-bottom: 0.2rem; margin-bottom: 0.45rem; }
 /* 일정 칸 글자 크기는 모두 고정(rem). 자동 축소 없음 */
 .date { font-size: 1rem; font-weight: 700; }
-/* 머리줄 왼쪽 제목. Poke3(안드로이드)엔 Arial 이 없어 비슷한 글꼴로 대체된다 */
-.brand { font-size: 1rem; font-weight: 700; font-family: Arial, Helvetica, "Liberation Sans", Roboto, sans-serif;
+/* 머리줄 왼쪽 제목 (Apps Script TITLE, 없으면 Schedule Board). 영문은 Arial 계열, 한글은 기본 한글 글꼴로 */
+.brand { font-size: 1.1rem; font-weight: 700; font-family: Arial, Helvetica, "Liberation Sans", Roboto, sans-serif;
           background: #000; color: #fff; padding: 0.05em 0.45em 0.1em; }   /* 검은 상자에 흰 글자 */
 
 section { margin-bottom: 0.5em; }

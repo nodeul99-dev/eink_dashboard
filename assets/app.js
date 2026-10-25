@@ -125,6 +125,8 @@
 
   // ---------- 렌더 ----------
   function renderHeader(now) {
+    // 제목은 Apps Script 스크립트 속성 TITLE 에서 받는다 (공개 레포에 이름을 두지 않기 위해). 없으면 기본 문구
+    setHtml('brand', esc(data && data.title || 'Schedule Board'));
     setHtml('date', now.getFullYear() + '년 ' + (now.getMonth() + 1) + '월 ' + now.getDate() + '일 (' + DAYS[now.getDay()] + ')');
   }
 
