@@ -25,7 +25,7 @@
   var SYNC_MIN = 30;
   var QUOTE_FIRST_HOUR = 7;   // 07시부터
   var QUOTE_LAST_HOUR = 17;   // 17시까지 매시 정각에 바뀐다
-  var CAL_LINES = 8;       // 오늘 + 다가오는 일정 줄 수 합계 목표 (오늘이 많으면 다가오는 일정이 줄어든다)
+  var CAL_LINES = 7;       // 오늘 + 다가오는 일정 줄 수 합계 목표 (오늘이 많으면 다가오는 일정이 줄어든다)
   var UPCOMING_MAX = 5;    // 다가오는 일정 최대 줄 수
 
   var params = parseQuery(location.search.slice(1));
@@ -141,16 +141,21 @@
     var todays = eventsOn(today);
     var remain = todays.filter(function (ev) { return ev.all_day || ev.end > nowStr; });
     var done = todays.length - remain.length;
-    var html = remain.map(function (ev) {
+    // 오늘 칸은 최대 CAL_LINES-1 줄. 넘치면 마지막 줄을 '외 N건' 으로
+    var todayMax = CAL_LINES - 1;
+    var todayShown = remain.length > todayMax ? remain.slice(0, todayMax - 1) : remain;
+    var html = todayShown.map(function (ev) {
       var isNow = !ev.all_day && ev.start <= nowStr;
       return '<li><span class="t">' + (ev.all_day ? '종일' : hm(ev.start)) + '</span><span class="x">' +
         esc(ev.title) + '</span>' + (isNow ? '<span class="r">진행 중</span>' : '') + '</li>';
     }).join('');
+    if (todayShown.length < remain.length) html += '<li class="empty">외 ' + (remain.length - todayShown.length) + '건</li>';
     setHtml('today-done', done > 0 ? '지난 일정 ' + done + '건' : '');
     setHtml('today', html || '<li class="empty">오늘 남은 일정 없음</li>');
 
     // 다가오는 일정 줄 수: 오늘 일정과 합쳐 CAL_LINES 줄 안에서, 최대 UPCOMING_MAX 줄 (최소 1줄)
-    var upcomingMax = Math.max(1, Math.min(UPCOMING_MAX, CAL_LINES - Math.max(1, remain.length)));
+    var todayLines = Math.max(1, Math.min(remain.length, todayMax));
+    var upcomingMax = Math.max(1, Math.min(UPCOMING_MAX, CAL_LINES - todayLines));
 
     // ── 다가오는 일정: 내일부터 받아 둔 범위 끝까지 (최대 upcomingMax 줄)
     var lastDay = data.range_end ? addDays(data.range_end, -1) : addDays(today, 14);
