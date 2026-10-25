@@ -6,7 +6,9 @@
  * - 데이터는 Apps Script 웹앱에서 한 번에 받는다 (일정 2주치 + 인용구 전체).
  *   네트워크는 핫스팟을 켤 때만 있다고 가정하고, 받은 데이터는 localStorage 에 둔다.
  *   '오늘', '다음 일정', '지금 인용구'는 전부 기기 시계로 계산한다.
- * - 동기화 시점: 페이지 열 때, 네트워크가 연결되는 순간(online), 화면을 탭할 때, 30분마다.
+ * - 동기화 시점: 페이지 열 때, 네트워크가 연결되는 순간(online), 화면을 탭할 때, 메뉴 '지금 동기화'.
+ *   (전력 절약: 주기적 동기화는 하지 않는다. 앱이 매일 새벽 페이지를 다시 불러올 때도 한 번 동기화된다)
+ * - 책갈피는 동기화와 무관하다: 받아 둔 인용구 안에서 기기 시계로 매시 정각에 바뀌고, ↻·보기 방식 버튼으로 바로 바뀐다.
  * - 잔상 줄이기: 내용이 바뀐 영역만 다시 그린다. 화면 재계산은 10분 간격.
  *
  * 처음 한 번 아래 주소로 열면 연결 정보가 기기에 저장된다 (# 뒤는 서버로 전송되지 않음):
@@ -22,7 +24,6 @@
   var DAYS = ['일', '월', '화', '수', '목', '금', '토'];
   var KEY_DATA = 'eink.data';
   var KEY_GAS = 'eink.gas';
-  var SYNC_MIN = 30;
   var QUOTE_FIRST_HOUR = 7;   // 07시부터
   var QUOTE_LAST_HOUR = 17;   // 17시까지 매시 정각에 바뀐다
   var CAL_LINES = 7;       // 오늘 + 다가오는 일정 줄 수 합계 목표 (오늘이 많으면 다가오는 일정이 줄어든다)
@@ -384,19 +385,18 @@
     if (clear && history.replaceState) history.replaceState(null, '', location.pathname + location.search);
   }
 
-  // 화면은 10분마다만 다시 계산한다: 끝난 일정 걸러내기, 다음 일정 넘기기, 진행 중 표시, 정각 인용구 교체.
-  // 내용이 바뀐 영역만 다시 그리므로 실제로 전자잉크가 갱신되는 일은 더 드물다.
-  var RENDER_EVERY_MS = 10 * 60000;
-  function everyTenMinutes() {
+  // 전력 절약: 화면은 매시 정각과 30분에만 다시 계산한다 (일정은 보통 정각·30분에 끝나고, 인용구는 정각에 바뀐다).
+  // 한국 시간은 UTC+9 라 30분 단위 경계가 그대로 맞는다. 바뀐 칸만 다시 그리므로 전자잉크 갱신은 더 드물다.
+  var RENDER_EVERY_MS = 30 * 60000;
+  function everyHalfHour() {
     renderAll();
-    setTimeout(everyTenMinutes, RENDER_EVERY_MS - (Date.now() % RENDER_EVERY_MS) + 50);
+    setTimeout(everyHalfHour, RENDER_EVERY_MS - (Date.now() % RENDER_EVERY_MS) + 50);
   }
 
   captureConfigFromHash();
   if (!DEMO) data = load(KEY_DATA);
-  everyTenMinutes();
+  everyHalfHour();
   syncNow();
-  setInterval(syncNow, SYNC_MIN * 60000);
   window.addEventListener('online', function () { setTimeout(syncNow, 3000); });
   document.addEventListener('click', function () { if (!IN_APP) enterFullscreen(); syncNow(); });
   // 책갈피 ↻: 다른 인용구 보기 (동기화는 하지 않는다)
