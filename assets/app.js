@@ -181,14 +181,21 @@
   }
 
   // ---------- 인용구 ----------
-  // 07~17시 매시 정각에 하나씩 (슬롯 번호). 무작위 모드에선 섞되 한 바퀴 돌기 전엔 반복하지 않는다.
+  // 07:00~17:59 사이 quoteInterval 분마다 하나씩 (슬롯 번호). 그 밖의 시간엔 그날 마지막 슬롯을 유지.
+  // 무작위 모드에선 섞되 한 바퀴 돌기 전엔 반복하지 않는다.
+  var KEY_QUOTE_INTERVAL = 'eink.quoteInterval';
+  var QUOTE_INTERVALS = [5, 10, 30, 60];   // 설정 창에서 고르는 간격(분)
+  var quoteInterval = QUOTE_INTERVALS.indexOf(load(KEY_QUOTE_INTERVAL)) >= 0 ? load(KEY_QUOTE_INTERVAL) : 60;
+
   function quoteSlot(now) {
-    var h = now.getHours();
+    var startMin = QUOTE_FIRST_HOUR * 60, endMin = (QUOTE_LAST_HOUR + 1) * 60;
+    var perDay = (endMin - startMin) / quoteInterval;
     var day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    if (h < QUOTE_FIRST_HOUR) { day.setDate(day.getDate() - 1); h = QUOTE_LAST_HOUR; }
-    if (h > QUOTE_LAST_HOUR) h = QUOTE_LAST_HOUR;
+    var m = now.getHours() * 60 + now.getMinutes();
+    if (m < startMin) { day.setDate(day.getDate() - 1); m = endMin - 1; }
+    if (m >= endMin) m = endMin - 1;
     var days = Math.round((day - new Date(2026, 0, 1)) / 86400000);
-    return days * (QUOTE_LAST_HOUR - QUOTE_FIRST_HOUR + 1) + (h - QUOTE_FIRST_HOUR);
+    return days * perDay + Math.floor((m - startMin) / quoteInterval);
   }
 
   // 인용구 묶음이 같으면 늘 같은 순서가 나오는 결정적 섞기
@@ -255,10 +262,11 @@
     renderQuote(now);
   }
 
-  function toggleQuoteMode() {
+  function setQuoteMode(mode) {
+    if (mode === quoteMode) return;
     var quotes = data && data.quotes || [];
     var now = new Date();
-    if (quoteMode === 'random') {
+    if (mode === 'book') {
       // 책 순서로 바꾸면 지금 보이는 문장의 책에서부터 이어 간다
       var cur = quotes.length ? currentQuoteIndex(quotes, now) : 0;
       quoteMode = 'book';
@@ -271,8 +279,55 @@
     renderQuote(now);
   }
 
+  function setQuoteInterval(min) {
+    if (min === quoteInterval || QUOTE_INTERVALS.indexOf(min) < 0) return;
+    var quotes = data && data.quotes || [];
+    var now = new Date();
+    // 간격이 바뀌면 슬롯 번호 체계가 바뀐다 → 지금 보이는 문장을 새 체계의 기준점으로 다시 잡는다
+    var cur = quotes.length ? currentQuoteIndex(quotes, now) : 0;
+    quoteInterval = min;
+    store(KEY_QUOTE_INTERVAL, min);
+    if (quoteMode === 'book') store(KEY_QUOTE_CURSOR, { pos: cur, slot: quoteSlot(now) });
+    else picked = { slot: quoteSlot(now), index: cur };
+    renderQuote(now);
+    scheduleRender();   // 화면 다시 계산 주기도 간격에 맞춘다
+  }
+
+  // ---------- 책갈피 설정 창 ----------
+  function settingsHtml() {
+    function opt(attr, val, label, on) {
+      return '<button type="button" class="qset-opt' + (on ? ' on' : '') + '" ' + attr + '="' + val + '">' + label + '</button>';
+    }
+    return '<div class="qset-box">' +
+      '<div class="qset-row"><div class="qset-label">보기 방식</div><div class="qset-opts">' +
+        opt('data-mode', 'book', '책 순서', quoteMode === 'book') + opt('data-mode', 'random', '무작위', quoteMode === 'random') +
+      '</div></div>' +
+      '<div class="qset-row"><div class="qset-label">바뀌는 간격 (07~18시)</div><div class="qset-opts">' +
+        QUOTE_INTERVALS.map(function (m) { return opt('data-int', m, m === 60 ? '1시간' : m + '분', quoteInterval === m); }).join('') +
+      '</div></div>' +
+      '<button type="button" class="qset-close">닫기</button></div>';
+  }
+
+  function openSettings() {
+    var el = $('qset');
+    el.innerHTML = settingsHtml();
+    el.hidden = false;
+  }
+
+  function closeSettings() { $('qset').hidden = true; }
+
+  function onSettingsClick(e) {
+    e.stopPropagation();   // 창을 눌러도 동기화되지 않게
+    var t = e.target;
+    if (t === $('qset') || (t.className && String(t.className).indexOf('qset-close') >= 0)) { closeSettings(); return; }
+    var mode = t.getAttribute && t.getAttribute('data-mode');
+    var iv = t.getAttribute && t.getAttribute('data-int');
+    if (mode) setQuoteMode(mode);
+    if (iv) setQuoteInterval(Number(iv));
+    if (mode || iv) $('qset').innerHTML = settingsHtml();   // 고른 항목 표시 갱신
+  }
+
   function renderQuote(now) {
-    setHtml('quote-mode', quoteMode === 'book' ? '책 순서' : '무작위');
     var quotes = data && data.quotes || [];
     if (!quotes.length) {
       setHtml('quote-fit', '<p class="empty">' + (data ? '받아 둔 인용구가 없습니다 (옵시디언 플러그인에서 보내기 필요)' : '') + '</p>');
@@ -387,26 +442,30 @@
     if (clear && history.replaceState) history.replaceState(null, '', location.pathname + location.search);
   }
 
-  // 전력 절약: 화면은 매시 정각과 30분에만 다시 계산한다 (일정은 보통 정각·30분에 끝나고, 인용구는 정각에 바뀐다).
+  // 전력 절약: 화면은 매시 정각과 30분에만 다시 계산한다(인용구 간격이 더 짧으면 그 간격마다) (일정은 보통 정각·30분에 끝나고, 인용구는 정각에 바뀐다).
   // 한국 시간은 UTC+9 라 30분 단위 경계가 그대로 맞는다. 바뀐 칸만 다시 그리므로 전자잉크 갱신은 더 드물다.
-  var RENDER_EVERY_MS = 30 * 60000;
-  function everyHalfHour() {
-    renderAll();
-    setTimeout(everyHalfHour, RENDER_EVERY_MS - (Date.now() % RENDER_EVERY_MS) + 50);
+  // 인용구 간격이 30분보다 짧으면 그 간격마다 (5·10분은 30분을 나누므로 정각·30분도 함께 맞는다)
+  var renderTimer = null;
+  function scheduleRender() {
+    if (renderTimer) clearTimeout(renderTimer);
+    var period = Math.min(30, quoteInterval) * 60000;
+    renderTimer = setTimeout(function () { renderAll(); scheduleRender(); }, period - (Date.now() % period) + 50);
   }
 
   captureConfigFromHash();
   if (!DEMO) data = load(KEY_DATA);
-  everyHalfHour();
+  renderAll();
+  scheduleRender();
   syncNow();
   window.addEventListener('online', function () { setTimeout(syncNow, 3000); });
   document.addEventListener('click', function () { if (!IN_APP) enterFullscreen(); syncNow(); });
   // 책갈피 ↻: 다른 인용구 보기 (동기화는 하지 않는다)
   var nextBtn = $('quote-next');
   if (nextBtn) nextBtn.addEventListener('click', function (e) { e.stopPropagation(); pickAnotherQuote(); });
-  // 책갈피 보기 방식 전환: 책 순서 ↔ 무작위
-  var modeBtn = $('quote-mode');
-  if (modeBtn) modeBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleQuoteMode(); });
+  // 책갈피 설정 창 (보기 방식·바뀌는 간격)
+  var setBtn = $('quote-settings');
+  if (setBtn) setBtn.addEventListener('click', function (e) { e.stopPropagation(); openSettings(); });
+  if ($('qset')) $('qset').addEventListener('click', onSettingsClick);
   // 앱의 '연결 설정'은 같은 페이지에 #gas=... 만 바꿔 넘긴다 → 새로고침 없이 받아 저장
   window.addEventListener('hashchange', function () {
     captureConfigFromHash();

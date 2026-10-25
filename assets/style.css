@@ -53,6 +53,21 @@ h2 { font-size: 0.9em; font-weight: 700; border-bottom: 1px solid #000;
 .foot .h2btn { font: inherit; line-height: 1; background: #fff; color: #000;
                border: 0; padding: 0.25em 0.2em; display: flex; align-items: center; }   /* 버튼 윤곽선 없음 */
 .foot #quote-next svg { width: 1.3em; height: 1.3em; }
+.foot #quote-settings svg { width: 1.4em; height: 1.4em; }
+
+/* 책갈피 설정 창: 화면 아래쪽에 흰 상자. 바탕(투명)을 누르면 닫힌다 */
+.qset { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column;
+        justify-content: flex-end; padding: 0 0.85rem 2rem; }
+.qset[hidden] { display: none; }
+.qset-box { background: #fff; border: 2px solid #000; padding: 0.7rem 0.8rem 0.6rem; font-size: 0.8rem; }
+.qset-row { margin-bottom: 0.7rem; }
+.qset-label { font-weight: 700; margin-bottom: 0.35rem; }
+.qset-opts { display: flex; flex-wrap: wrap; margin: 0 -0.2rem; }
+.qset-opt { font: inherit; background: #fff; color: #000; border: 1.5px solid #000;
+            padding: 0.35em 0.75em; margin: 0 0.2rem 0.3rem; }
+.qset-opt.on { background: #000; color: #fff; font-weight: 700; }
+.qset-close { font: inherit; display: block; margin-left: auto; background: #fff; color: #000;
+              border: 0; text-decoration: underline; padding: 0.3em 0.2em; }
 
 .q-text { font-size: 0.9em; line-height: 1.5; word-break: normal; overflow-wrap: break-word; }   /* 한글은 글자 단위로 줄바꿈(줄 끝을 고르게), 숫자·영어 단어는 붙여 둠 */
 /* 책갈피 카드: 옅은 회색 메모지 + 오른쪽 위 접힌 모서리 (그림자 없음). 칸 아래를 꽉 채운다 */
